@@ -1,6 +1,7 @@
 package prompt
 
 import (
+	_ "embed"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,15 @@ import (
 	"github.com/waynenilsen/crumbler/internal/state"
 	"github.com/waynenilsen/crumbler/internal/ticket"
 )
+
+//go:embed tech_debt_guide.md
+var techDebtGuideContent string
+
+//go:embed prd_guide.md
+var prdGuideContent string
+
+//go:embed erd_guide.md
+var erdGuideContent string
 
 // ContextFile represents a file that may be included in the prompt context.
 type ContextFile struct {
@@ -272,4 +282,19 @@ func (ctx *ProjectContext) GetCurrentPosition() string {
 		return "No active entities"
 	}
 	return strings.Join(parts, " > ")
+}
+
+// GetTechDebtGuide returns the embedded tech debt guide content.
+func GetTechDebtGuide() string {
+	return techDebtGuideContent
+}
+
+// GetPRDGuide returns the embedded PRD guide content.
+func GetPRDGuide() string {
+	return prdGuideContent
+}
+
+// GetERDGuide returns the embedded ERD guide content.
+func GetERDGuide() string {
+	return erdGuideContent
 }

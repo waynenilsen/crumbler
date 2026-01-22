@@ -3,6 +3,8 @@ package prompt
 import (
 	"fmt"
 	"strings"
+
+	"github.com/waynenilsen/crumbler/internal/query"
 )
 
 // PromptConfig configures prompt generation.
@@ -83,6 +85,40 @@ func generateContextSection(ctx *ProjectContext, state State) string {
 	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n")
 	sb.WriteString("                              CONTEXT                                          \n")
 	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n\n")
+
+	// PRD and ERD Guides (for sprint creation)
+	if state == StateCreateSprint {
+		prdGuideContent := GetPRDGuide()
+		sb.WriteString("### Product Requirements Document (PRD) Guide\n\n")
+		sb.WriteString("This comprehensive guide provides detailed information about writing effective PRDs based on best practices from leading tech companies:\n\n")
+		sb.WriteString("```\n")
+		sb.WriteString(prdGuideContent)
+		sb.WriteString("\n```\n\n")
+
+		erdGuideContent := GetERDGuide()
+		sb.WriteString("### Engineering Requirements Document (ERD) Guide\n\n")
+		sb.WriteString("This comprehensive guide provides detailed information about writing effective ERDs based on best practices from leading tech companies. IMPORTANT: The PRD must be written FIRST before writing the ERD:\n\n")
+		sb.WriteString("```\n")
+		sb.WriteString(erdGuideContent)
+		sb.WriteString("\n```\n\n")
+
+		// Tech Debt Guide (for first sprint only)
+		isFirstSprint := false
+		if ctx.CurrentPhase != nil {
+			sprintsExist, err := query.SprintsExist(ctx.CurrentPhase.Path)
+			if err == nil && !sprintsExist {
+				isFirstSprint = true
+			}
+		}
+		if isFirstSprint {
+			guideContent := GetTechDebtGuide()
+			sb.WriteString("### Tech Debt Paydown Guide\n\n")
+			sb.WriteString("This comprehensive guide provides detailed information about technical debt and how to plan a tech debt paydown sprint:\n\n")
+			sb.WriteString("```\n")
+			sb.WriteString(guideContent)
+			sb.WriteString("\n```\n\n")
+		}
+	}
 
 	// Roadmap (always relevant)
 	if ctx.Roadmap != nil && !ctx.Roadmap.Missing {

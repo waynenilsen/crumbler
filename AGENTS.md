@@ -880,3 +880,5 @@ done
 - Context truncated at 4000 chars to prevent huge prompts
 - First open ticket becomes "current ticket" when multiple exist
 - `--state-only` flag enables simple shell script loops
+
+- **Tech Debt Paydown Rule**: When creating the first sprint of a new phase, the agent MUST create a tech debt paydown sprint. This is enforced in `getCreateSprintInstruction()` by checking if any sprints exist in the phase using `query.SprintsExist()`. If no sprints exist, a comprehensive Tech Debt Paydown Guide (`tech_debt_guide.md`) is embedded directly into the prompt's CONTEXT section using Go's `embed` package. The guide contains detailed information about technical debt categories, prioritization frameworks, sprint planning, and tools/resources. The instruction notes reference this guide, ensuring the agent has all the detail needed to plan an effective tech debt paydown sprint. Subsequent sprints in the phase can focus on feature development.

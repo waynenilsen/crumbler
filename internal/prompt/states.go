@@ -291,6 +291,42 @@ func getCreatePhaseGoalsInstruction(ctx *ProjectContext) *StateInstruction {
 }
 
 func getCreateSprintInstruction(ctx *ProjectContext) *StateInstruction {
+	// Check if this is the first sprint of the phase
+	isFirstSprint := false
+	if ctx.CurrentPhase != nil {
+		sprintsExist, err := query.SprintsExist(ctx.CurrentPhase.Path)
+		if err == nil && !sprintsExist {
+			isFirstSprint = true
+		}
+	}
+
+	notes := []string{
+		"IMPORTANT: This sprint should be planned to have MULTIPLE tickets (typically 3-10+ tickets)",
+		"DO NOT create a sprint with 1 ticket that maps 1-1 to sprint goals - break it down!",
+	}
+
+	// Add tech debt paydown rule for first sprint
+	if isFirstSprint {
+		notes = append(notes, "")
+		notes = append(notes, "🚨 CRITICAL: This is the FIRST sprint of a new phase. You MUST create a TECH DEBT PAYDOWN sprint.",
+			"A comprehensive Tech Debt Paydown Guide has been included in the CONTEXT section above.",
+			"Read that guide thoroughly - it contains detailed information about:",
+			"  - Common technical debt categories and how to identify them",
+			"  - Prioritization frameworks for tech debt",
+			"  - How to plan sprint goals and create tickets",
+			"  - Tools and resources for addressing tech debt",
+			"  - Patterns and anti-patterns to follow",
+			"Use the guide to identify specific tech debt items in the codebase and create a focused sprint plan.",
+			"The PRD.md and ERD.md should detail the specific tech debt items to address in this sprint.",
+			"After this tech debt sprint, subsequent sprints in the phase can focus on feature development.")
+	}
+
+	notes = append(notes,
+		"The sprint should work toward completing the phase goals",
+		"PRD.md should detail what features/changes will be built",
+		"ERD.md (Engineering Requirements Document) should detail the technical implementation approach, architecture, and engineering requirements",
+		"Sprint goals should be achievable within the sprint timeframe, but require multiple tickets to complete")
+
 	return &StateInstruction{
 		State:       StateCreateSprint,
 		Title:       "Create Sprint",
@@ -298,20 +334,13 @@ func getCreateSprintInstruction(ctx *ProjectContext) *StateInstruction {
 		Steps: []string{
 			"Run: crumbler sprint create",
 			"Populate sprint README.md with sprint objectives",
-			"Populate PRD.md with product requirements for this sprint",
-			"Populate ERD.md (Engineering Requirements Document) with technical design and implementation requirements",
+			"Populate PRD.md with product requirements for this sprint (see PRD Guide in CONTEXT section above for comprehensive guidance on writing effective PRDs)",
+			"Populate ERD.md (Engineering Requirements Document) with technical design and implementation requirements (see ERD Guide in CONTEXT section above for comprehensive guidance. IMPORTANT: Write the PRD FIRST, then write the ERD based on the PRD requirements)",
 		},
 		Commands: []string{
 			"crumbler sprint create",
 		},
-		Notes: []string{
-			"IMPORTANT: This sprint should be planned to have MULTIPLE tickets (typically 3-10+ tickets)",
-			"DO NOT create a sprint with 1 ticket that maps 1-1 to sprint goals - break it down!",
-			"The sprint should work toward completing the phase goals",
-			"PRD.md should detail what features/changes will be built",
-			"ERD.md (Engineering Requirements Document) should detail the technical implementation approach, architecture, and engineering requirements",
-			"Sprint goals should be achievable within the sprint timeframe, but require multiple tickets to complete",
-		},
+		Notes: notes,
 	}
 }
 
