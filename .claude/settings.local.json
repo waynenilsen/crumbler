@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go mod init:*)",
+      "Bash(find:*)",
+      "Bash(go build:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(gofmt:*)",
+      "Bash(go clean:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(./crumbler:*)",
+      "Bash(/Users/waynenilsen/git/crumbler/crumbler phase create:*)"
+    ]
+  }
+}
