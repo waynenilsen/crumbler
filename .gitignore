@@ -1,5 +1,6 @@
 # Binaries
-crumbler
+/crumbler
+crumbler.exe
 *.exe
 *.exe~
 *.dll
