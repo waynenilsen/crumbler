@@ -120,6 +120,16 @@ func generateContextSection(ctx *ProjectContext, state State) string {
 		}
 	}
 
+	// Ticket Decomposition Guide (for ticket creation)
+	if state == StateCreateTickets {
+		guideContent := GetTicketDecompositionGuide()
+		sb.WriteString("### Ticket Decomposition Guide\n\n")
+		sb.WriteString("This comprehensive guide provides detailed information about breaking down ERDs and epics into individual tickets based on best practices from leading tech companies. IMPORTANT: The ERD must be completed before breaking down into tickets:\n\n")
+		sb.WriteString("```\n")
+		sb.WriteString(guideContent)
+		sb.WriteString("\n```\n\n")
+	}
+
 	// Roadmap (always relevant)
 	if ctx.Roadmap != nil && !ctx.Roadmap.Missing {
 		sb.WriteString(formatFileContent(ctx.Roadmap))

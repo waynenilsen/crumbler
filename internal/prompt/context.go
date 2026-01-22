@@ -23,6 +23,9 @@ var prdGuideContent string
 //go:embed erd_guide.md
 var erdGuideContent string
 
+//go:embed ticket_decomposition_guide.md
+var ticketDecompositionGuideContent string
+
 // ContextFile represents a file that may be included in the prompt context.
 type ContextFile struct {
 	RelPath  string // Relative path from project root
@@ -297,4 +300,9 @@ func GetPRDGuide() string {
 // GetERDGuide returns the embedded ERD guide content.
 func GetERDGuide() string {
 	return erdGuideContent
+}
+
+// GetTicketDecompositionGuide returns the embedded ticket decomposition guide content.
+func GetTicketDecompositionGuide() string {
+	return ticketDecompositionGuideContent
 }
