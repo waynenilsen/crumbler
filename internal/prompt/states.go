@@ -224,7 +224,11 @@ func getCreatePhaseInstruction(ctx *ProjectContext) *StateInstruction {
 	}
 
 	var notes []string
+	notes = append(notes, "IMPORTANT: This phase should be planned to have MULTIPLE sprints (typically 3-5+ sprints)")
+	notes = append(notes, "Phase goals should be HIGH-LEVEL objectives, NOT ticket-level implementation details")
+	notes = append(notes, "DO NOT create a phase that maps 1-1 to a single sprint - that defeats the purpose!")
 	if len(phaseGoals) > 0 {
+		notes = append(notes, "")
 		notes = append(notes, "Roadmap goals for this phase:")
 		for i, g := range phaseGoals {
 			notes = append(notes, fmt.Sprintf("  %d. %s", i+1, g))
@@ -275,8 +279,13 @@ func getCreatePhaseGoalsInstruction(ctx *ProjectContext) *StateInstruction {
 			"crumbler phase goal create \"<goal-name>\"",
 		},
 		Notes: []string{
+			"IMPORTANT: Phase goals should be HIGH-LEVEL objectives that require MULTIPLE sprints to achieve",
+			"DO NOT create ticket-level implementation goals here (e.g., 'Create user model', 'Add API endpoint')",
+			"Good phase goals: 'Implement user authentication system', 'Build payment processing', 'Create admin dashboard'",
+			"Bad phase goals: 'Create database schema', 'Write login function', 'Add button to UI'",
 			"Goals should be specific and measurable",
 			"Use the roadmap as guidance for what goals to create",
+			"Each phase goal should span multiple sprints, not map 1-1 to a single sprint",
 		},
 	}
 }
@@ -296,9 +305,12 @@ func getCreateSprintInstruction(ctx *ProjectContext) *StateInstruction {
 			"crumbler sprint create",
 		},
 		Notes: []string{
+			"IMPORTANT: This sprint should be planned to have MULTIPLE tickets (typically 3-10+ tickets)",
+			"DO NOT create a sprint with 1 ticket that maps 1-1 to sprint goals - break it down!",
 			"The sprint should work toward completing the phase goals",
 			"PRD.md should detail what features/changes will be built",
 			"ERD.md should detail the technical implementation approach",
+			"Sprint goals should be achievable within the sprint timeframe, but require multiple tickets to complete",
 		},
 	}
 }
@@ -336,8 +348,13 @@ func getCreateSprintGoalsInstruction(ctx *ProjectContext) *StateInstruction {
 			"crumbler sprint goal create \"<goal-name>\"",
 		},
 		Notes: []string{
+			"IMPORTANT: Sprint goals should require MULTIPLE tickets to achieve",
+			"DO NOT create sprint goals that map 1-1 to a single ticket",
+			"Good sprint goals: 'Users can register and log in', 'Payment processing works end-to-end'",
+			"Bad sprint goals: 'Create user model', 'Add login button' (these are ticket-level)",
 			"Sprint goals should be achievable within the sprint",
 			"Goals should map to the requirements in PRD.md",
+			"Each sprint goal should decompose into 2-5+ tickets",
 		},
 	}
 }
@@ -350,6 +367,7 @@ func getCreateTicketsInstruction(ctx *ProjectContext) *StateInstruction {
 		Steps: []string{
 			"Review the sprint PRD.md and ERD.md to understand the work",
 			"Break down the work into discrete, implementable tickets",
+			"Create MULTIPLE tickets (typically 3-10+ tickets per sprint)",
 			"For each ticket:",
 			"  1. Run: crumbler ticket create",
 			"  2. Populate the ticket README.md with:",
@@ -361,9 +379,16 @@ func getCreateTicketsInstruction(ctx *ProjectContext) *StateInstruction {
 			"crumbler ticket create",
 		},
 		Notes: []string{
+			"IMPORTANT: Create MULTIPLE tickets - DO NOT create just 1 ticket per sprint goal!",
 			"Each ticket should be a single, focused unit of work",
 			"Tickets should work toward the sprint goals",
 			"Order tickets by dependency if applicable",
+			"Example: If sprint goal is 'User registration', create tickets like:",
+			"  - Ticket 1: Database schema for users",
+			"  - Ticket 2: Registration API endpoint",
+			"  - Ticket 3: Input validation",
+			"  - Ticket 4: Error handling",
+			"  - Ticket 5: Tests",
 		},
 	}
 }

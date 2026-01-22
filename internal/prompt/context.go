@@ -26,17 +26,17 @@ type ProjectContext struct {
 	ProjectRoot string // Absolute path to project root
 
 	// Roadmap
-	Roadmap       *ContextFile       // Contents of roadmap.md
-	RoadmapParsed *models.Roadmap    // Parsed roadmap structure
-	TotalPhases   int                // Total phases from roadmap
-	ClosedPhases  int                // Number of closed phases
+	Roadmap       *ContextFile    // Contents of roadmap.md
+	RoadmapParsed *models.Roadmap // Parsed roadmap structure
+	TotalPhases   int             // Total phases from roadmap
+	ClosedPhases  int             // Number of closed phases
 
 	// Current Phase
-	CurrentPhase    *models.Phase   // Currently open phase (nil if none)
-	PhaseReadme     *ContextFile    // Contents of phase README.md
-	PhaseGoals      []models.Goal   // Goals for current phase
-	PhaseIndex      int             // 1-based index of current phase
-	NextPhaseDef    *models.PhaseDefinition // Next phase to create (if applicable)
+	CurrentPhase *models.Phase           // Currently open phase (nil if none)
+	PhaseReadme  *ContextFile            // Contents of phase README.md
+	PhaseGoals   []models.Goal           // Goals for current phase
+	PhaseIndex   int                     // 1-based index of current phase
+	NextPhaseDef *models.PhaseDefinition // Next phase to create (if applicable)
 
 	// Current Sprint
 	CurrentSprint *models.Sprint // Currently open sprint (nil if none)

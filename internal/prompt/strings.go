@@ -62,17 +62,19 @@ const DirectoryStructure = `Directory structure:
 │                       └── goals/     # Ticket-level goals`
 
 // AgentWorkflowInstructions provides guidance on how the agent should work.
-const AgentWorkflowInstructions = `How to work:
+const AgentWorkflowInstructions = `How to work (SINGLE-SHOT EXECUTION):
 1. Read the current state and understand context
-2. Execute the SINGLE instruction provided below
-3. Run 'crumbler get-next-prompt' for your next instruction
-4. Repeat until EXIT state is reached
+2. Execute ONLY the SINGLE instruction provided below
+3. After completing the instruction, run 'crumbler get-next-prompt' to get the next instruction
+4. DO NOT loop or repeat - execute ONE action and stop
 
 Important:
-- Execute ONE action at a time
+- This is a SINGLE-SHOT prompt - execute ONE action only
 - Do not skip steps or combine multiple actions
+- Do not loop or check for EXIT state yourself
 - Always use crumbler commands for state transitions
-- Populate empty files with meaningful content before proceeding`
+- Populate empty files with meaningful content before proceeding
+- The next call to 'crumbler get-next-prompt' will determine if EXIT state is reached`
 
 // PhaseClosingRules describes when a phase can be closed.
 const PhaseClosingRules = `A phase can be closed when:
@@ -98,3 +100,65 @@ Commands:
 - crumbler phase goal close <goal-id>
 - crumbler sprint goal close <goal-id>
 - crumbler ticket goal close <ticket-id> <goal-id>`
+
+// HierarchyDetailLevels explains the proper hierarchy and detail levels.
+const HierarchyDetailLevels = `CRITICAL: Hierarchy and Detail Levels
+
+The structure is: Phase -> Sprint -> Ticket
+
+Detail level INCREASES as you go down the hierarchy:
+- Phase: High-level objectives, multiple sprints required
+- Sprint: Detailed requirements (PRD/ERD), multiple tickets required  
+- Ticket: Implementation-level tasks, specific code changes
+
+REQUIREMENTS:
+- A phase MUST have MORE THAN ONE sprint (typically 3-5+ sprints)
+- A sprint MUST have MORE THAN ONE ticket (typically 3-10+ tickets)
+- Do NOT declare ticket-level detail in phase goals
+- Do NOT create a phase with 1 sprint that maps 1-1 to phase goals
+- Do NOT create a sprint with 1 ticket that maps 1-1 to sprint goals
+
+GOOD EXAMPLES:
+
+Phase "User Authentication":
+  Goal: "Implement secure user authentication system"
+  → Sprint 1: "User registration and login"
+  → Sprint 2: "Password reset flow"
+  → Sprint 3: "OAuth integration"
+  → Sprint 4: "Session management"
+  (Each sprint has multiple tickets)
+
+Sprint "User registration and login":
+  Goal: "Users can register and log in"
+  → Ticket 1: "Create user model and database schema"
+  → Ticket 2: "Implement registration API endpoint"
+  → Ticket 3: "Implement login API endpoint"
+  → Ticket 4: "Add input validation and error handling"
+  → Ticket 5: "Write tests for auth endpoints"
+  (Each ticket has specific implementation goals)
+
+BAD EXAMPLES (DO NOT DO THIS):
+
+❌ Phase with ticket-level detail:
+  Phase "User Authentication":
+    Goal: "Create user model and database schema"
+    Goal: "Implement registration API endpoint"
+    Goal: "Implement login API endpoint"
+  → Sprint 1: (maps 1-1 to phase goals)
+    → Ticket 1: "Create user model"
+    → Ticket 2: "Registration API"
+    → Ticket 3: "Login API"
+  This defeats the purpose - phase should be higher level!
+
+❌ Sprint with 1 ticket:
+  Sprint "User Authentication":
+    Goal: "Implement user authentication"
+  → Ticket 1: "Do all authentication work"
+  This is too coarse - break it down!
+
+❌ Phase with 1 sprint:
+  Phase "Build Todo App":
+  → Sprint 1: "Build everything"
+  This defeats the purpose - phases should span multiple sprints!
+
+Remember: Each level should decompose the level above into smaller, more detailed pieces.`

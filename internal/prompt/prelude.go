@@ -38,6 +38,11 @@ func GeneratePrelude(ctx *ProjectContext, state State) string {
 	sb.WriteString(HierarchyRules)
 	sb.WriteString("\n\n")
 
+	// Hierarchy detail levels
+	sb.WriteString("## Hierarchy and Detail Levels\n\n")
+	sb.WriteString(HierarchyDetailLevels)
+	sb.WriteString("\n\n")
+
 	// How to work
 	sb.WriteString("## How to Work\n\n")
 	sb.WriteString(AgentWorkflowInstructions)
