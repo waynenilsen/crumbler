@@ -11,7 +11,8 @@
       "Bash(ls:*)",
       "Bash(wc:*)",
       "Bash(./crumbler:*)",
-      "Bash(/Users/waynenilsen/git/crumbler/crumbler phase create:*)"
+      "Bash(/Users/waynenilsen/git/crumbler/crumbler phase create:*)",
+      "Bash(grep:*)"
     ]
   }
 }

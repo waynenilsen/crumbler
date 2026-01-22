@@ -760,3 +760,123 @@ Implemented comprehensive edge case and error handling tests covering all scenar
 - `WithTicket()` internally calls `WithSprint()` with "open" status
 - `WithTicketGoal()` internally calls `WithTicket()` with "open" status
 - To create closed/done parents with open children (invalid hierarchy), build with open status first, then manually change parent status after build
+
+### AI Agent Prompt Generation (internal/prompt/)
+
+Implemented the `get-next-prompt` command and supporting prompt package for AI agent automation.
+
+**Package Structure:**
+```
+internal/prompt/
+├── strings.go      # Shared strings (reused by CLI help to prevent doc drift)
+├── context.go      # Context gathering and file reading
+├── states.go       # State determination and instruction templates
+├── prelude.go      # Prelude template generation
+├── postlude.go     # Postlude template generation
+└── prompt.go       # Main prompt builder
+```
+
+**CLI Command:** `crumbler get-next-prompt`
+
+**Flags:**
+- `--no-prelude` - Skip the prelude section
+- `--no-postlude` - Skip the postlude section
+- `--no-context` - Skip the context section (file contents)
+- `--minimal` - Use minimal prelude/postlude (less verbose)
+- `--state-only` - Only output the current state name
+
+**State Machine States:**
+| State | Condition | Action |
+|-------|-----------|--------|
+| `EXIT` | RoadmapComplete && !OpenPhaseExists | Project complete |
+| `CREATE_PHASE` | !OpenPhaseExists && !RoadmapComplete | Create next phase |
+| `CREATE_PHASE_GOALS` | OpenPhase && !PhaseGoalsExist | Create phase goals |
+| `CREATE_SPRINT` | OpenPhase && !OpenSprint && !PhaseGoalsMet | Create sprint |
+| `CLOSE_PHASE` | OpenPhase && !OpenSprint && PhaseGoalsMet | Close phase |
+| `CREATE_SPRINT_GOALS` | OpenSprint && !SprintGoalsExist | Create sprint goals |
+| `CREATE_TICKETS` | OpenSprint && !OpenTickets && !SprintGoalsMet | Create tickets |
+| `CLOSE_SPRINT` | OpenSprint && !OpenTickets && SprintGoalsMet | Close sprint |
+| `CREATE_TICKET_GOALS` | OpenTicket && !TicketGoalsExist | Create ticket goals |
+| `EXECUTE_TICKET` | OpenTicket && !TicketComplete | Execute ticket |
+| `MARK_TICKET_DONE` | OpenTicket && TicketComplete | Mark done |
+
+**Key Types:**
+
+1. **ContextFile** - Represents a file in the prompt context:
+   - `RelPath` - Relative path from project root
+   - `Contents` - File contents
+   - `Empty` - True if file exists but is empty
+   - `Missing` - True if file doesn't exist
+
+2. **ProjectContext** - Holds all context for prompt generation:
+   - Roadmap info (parsed roadmap, total phases, closed phases)
+   - Current phase (phase, goals, README)
+   - Current sprint (sprint, goals, README, PRD, ERD)
+   - Current ticket (ticket, goals, README)
+   - Open tickets list
+
+3. **State** - String enum for state machine states
+
+4. **StateInstruction** - Instruction for a given state:
+   - Title, Description, Steps, Commands, Notes
+
+**Key Functions:**
+
+- `GatherContext(projectRoot string) (*ProjectContext, error)` - Collects all relevant context
+- `DetermineState(ctx *ProjectContext) (State, error)` - Implements flowchart decision logic
+- `GetStateInstruction(state State, ctx *ProjectContext) *StateInstruction` - Returns instruction for state
+- `GeneratePrompt(projectRoot string, config *PromptConfig) (string, error)` - Main entry point
+- `GetState(projectRoot string) (State, error)` - Quick state lookup
+- `FormatGoalsList(goals []models.Goal) string` - Format goals as checklist
+
+**Prompt Output Structure:**
+```
+╔═══════════════════════════════════════════════════════════════╗
+║ PRELUDE                                                       ║
+║ - What crumbler is (shared strings)                           ║
+║ - How agent should work                                       ║
+║ - Current position (phase/sprint/ticket)                      ║
+╠═══════════════════════════════════════════════════════════════╣
+║ CONTEXT (inline file contents with relpaths as headers)       ║
+║ - roadmap.md, README.md, PRD.md, ERD.md                       ║
+║ - Goals with checkboxes: [ ] open, [x] closed                 ║
+║ - Empty files marked: "(file is empty - YOU MUST POPULATE)"   ║
+╠═══════════════════════════════════════════════════════════════╣
+║ INSTRUCTION                                                   ║
+║ - State-specific title and description                        ║
+║ - Numbered steps to execute                                   ║
+║ - crumbler commands to run                                    ║
+╠═══════════════════════════════════════════════════════════════╣
+║ POSTLUDE                                                      ║
+║ - Commands to run when done                                   ║
+║ - Always ends with: crumbler get-next-prompt                  ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+**Agent Loop Pattern:**
+```bash
+while true; do
+    prompt=$(crumbler get-next-prompt)
+    if echo "$prompt" | grep -q "STATE: EXIT"; then
+        echo "Project complete!"
+        break
+    fi
+    # Pass prompt to AI agent
+    claude --prompt "$prompt"
+done
+```
+
+**Test Coverage (internal/prompt/prompt_test.go):**
+- `TestDetermineState` - All 11 states with correct conditions
+- `TestGatherContext` - Roadmap, phase, sprint, ticket context gathering
+- `TestGeneratePrompt` - Prelude/postlude/context inclusion and exclusion
+- `TestGetStateInstruction` - Commands and titles for each state
+- `TestFormatGoalsList` - Open/closed goal formatting
+- `TestFullWorkflowScenarios` - State progression through workflow
+
+**Design Decisions:**
+- Shared strings in `strings.go` prevent doc drift between CLI help and prompts
+- Empty files explicitly marked for AI to populate
+- Context truncated at 4000 chars to prevent huge prompts
+- First open ticket becomes "current ticket" when multiple exist
+- `--state-only` flag enables simple shell script loops
