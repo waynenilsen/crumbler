@@ -611,6 +611,103 @@ flowchart TD
     style MARK_DONE fill:#48bb78,stroke:#2f855a,color:#fff
 ```
 
+### Agent Loop Structure Creation
+
+The flowchart above shows the agent loop logic. Below is the file structure created at each step:
+
+#### CREATE_PHASE
+Creates a new phase directory with:
+```
+.crumbler/phases/XXXX-phase/
+├── open              # Phase status: open (empty file)
+├── README.md         # Phase description (AI populates)
+├── goals/            # Phase goals directory
+└── sprints/          # Sprints in this phase
+```
+
+**Files/Directories Created:**
+- Phase directory: `.crumbler/phases/XXXX-phase/` (4-digit zero-padded index)
+- Status file: `open` (empty file)
+- Documentation: `README.md` (empty, AI populates)
+- Subdirectories: `goals/`, `sprints/`
+
+#### CREATE_SPRINT
+Creates a new sprint directory with:
+```
+.crumbler/phases/XXXX-phase/sprints/XXXX-sprint/
+├── open              # Sprint status: open (empty file)
+├── README.md         # Sprint description (AI populates)
+├── PRD.md            # Product Requirements Document (AI populates)
+├── ERD.md            # Entity Relationship Diagram (AI populates)
+├── goals/            # Sprint goals directory
+└── tickets/          # Tickets in this sprint
+```
+
+**Files/Directories Created:**
+- Sprint directory: `.crumbler/phases/XXXX-phase/sprints/XXXX-sprint/` (4-digit zero-padded index)
+- Status file: `open` (empty file)
+- Documentation: `README.md`, `PRD.md`, `ERD.md` (all empty, AI populates)
+- Subdirectories: `goals/`, `tickets/`
+
+#### CREATE_TICKETS
+Creates ticket directories with:
+```
+.crumbler/phases/XXXX-phase/sprints/XXXX-sprint/tickets/XXXX-ticket/
+├── open              # Ticket status: open (empty file)
+├── README.md         # Ticket description (AI populates)
+└── goals/            # Ticket goals directory
+```
+
+**Files/Directories Created:**
+- Ticket directory: `.crumbler/phases/XXXX-phase/sprints/XXXX-sprint/tickets/XXXX-ticket/` (4-digit zero-padded index)
+- Status file: `open` (empty file)
+- Documentation: `README.md` (empty, AI populates)
+- Subdirectory: `goals/`
+
+#### CREATE_GOALS (Phase/Sprint/Ticket Level)
+Creates goal directories at any level with:
+```
+.crumbler/phases/XXXX-phase/goals/XXXX-goal/
+├── name              # Goal name (AI populates)
+├── open              # Goal status: open (empty file)
+└── closed            # Goal status: closed (empty file, mutually exclusive with open)
+```
+
+**Files/Directories Created:**
+- Goal directory: `goals/XXXX-goal/` (4-digit zero-padded index)
+- Name file: `name` (AI populates with goal description)
+- Status files: `open` (created initially), `closed` (created when goal is closed)
+
+**Note:** Goals can be created at phase, sprint, or ticket level. The structure is identical at all levels.
+
+#### CLOSE_PHASE
+Modifies phase status:
+- Removes: `open` file
+- Creates: `closed` file
+
+**Prerequisites:**
+- All sprints in phase must have `closed` file
+- All phase goals must have `closed` file
+
+#### CLOSE_SPRINT
+Modifies sprint status:
+- Removes: `open` file
+- Creates: `closed` file
+
+**Prerequisites:**
+- All tickets in sprint must have `done` file
+- All sprint goals must have `closed` file
+
+#### MARK_DONE (Ticket)
+Modifies ticket status:
+- Removes: `open` file
+- Creates: `done` file
+
+**Prerequisites:**
+- All ticket goals must have `closed` file
+
+**Note:** Tickets use `done` instead of `closed` to distinguish from phases/sprints.
+
 ## License
 
 MIT
