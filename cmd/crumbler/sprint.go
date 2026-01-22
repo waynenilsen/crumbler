@@ -212,7 +212,7 @@ func runSprintCreate(args []string) error {
 	fmt.Println("Next steps:")
 	fmt.Printf("  1. Edit %s/README.md to describe the sprint\n", relSprintPath)
 	fmt.Printf("  2. Edit %s/PRD.md with Product Requirements Document\n", relSprintPath)
-	fmt.Printf("  3. Edit %s/ERD.md with Entity Relationship Diagram\n", relSprintPath)
+	fmt.Printf("  3. Edit %s/ERD.md with Engineering Requirements Document\n", relSprintPath)
 	fmt.Printf("  4. Create sprint goals: crumbler sprint goal create %s <goal-name>\n", sprintID)
 	fmt.Printf("  5. Create tickets: crumbler ticket create %s\n", sprintID)
 
@@ -501,7 +501,7 @@ SPRINT DIRECTORY STRUCTURE:
     .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/closed     Sprint is closed
     .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/README.md  Sprint description
     .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/PRD.md     Product Requirements
-    .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/ERD.md     Entity Relationships
+    .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/ERD.md     Engineering Requirements
     .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/tickets/   Tickets directory
     .crumbler/phases/XXXX-phase/sprints/YYYY-sprint/goals/     Goals directory
 
@@ -635,29 +635,24 @@ FOR AI AGENTS:
        - System must handle 1000 concurrent logins
        EOF
 
-    3. Write Entity Relationship Diagram to ERD.md:
+    3. Write Engineering Requirements Document to ERD.md:
        cat > .crumbler/phases/0001-phase/sprints/0001-sprint/ERD.md << 'EOF'
-       # Entity Relationship Diagram: User Authentication
+       # Engineering Requirements Document: User Authentication
 
-       ## Entities
+       ## Technical Architecture
+       - Authentication service design
+       - API endpoint structure
+       - Security requirements
 
-       ### User
-       - id (primary key)
-       - email (unique, indexed)
-       - password_hash
-       - created_at
-       - updated_at
+       ## Implementation Approach
+       - Password hashing strategy (bcrypt/argon2)
+       - Session token generation and validation
+       - Token storage and expiration handling
 
-       ### Session
-       - id (primary key)
-       - user_id (foreign key -> User.id)
-       - token (unique, indexed)
-       - expires_at
-       - created_at
-
-       ## Relationships
-       - User has_many Sessions
-       - Session belongs_to User
+       ## Technical Constraints
+       - Performance requirements (response time < 200ms)
+       - Security standards (OWASP compliance)
+       - Scalability considerations
        EOF
 
     4. Create sprint goals:
@@ -672,7 +667,7 @@ FOR AI AGENTS:
     DOCUMENTATION STRUCTURE:
     - README.md: Sprint overview, goal, scope, success criteria
     - PRD.md: Detailed functional/non-functional requirements
-    - ERD.md: Database schema, entities, relationships
+    - ERD.md: Engineering Requirements Document - technical architecture, implementation approach, constraints
 `)
 }
 

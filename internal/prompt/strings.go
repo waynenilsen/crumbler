@@ -13,7 +13,7 @@ lifecycle (SDLC) automation. It manages:
 - State machine integrity validation
 
 crumbler does NOT generate content - YOU (the AI agent) are responsible for:
-- Populating README.md, PRD.md, ERD.md files
+- Populating README.md, PRD.md, ERD.md files (ERD = Engineering Requirements Document)
 - Creating goal names
 - Writing ticket descriptions
 - Making development decisions`
@@ -53,7 +53,7 @@ const DirectoryStructure = `Directory structure:
 │       └── sprints/
 │           └── XXXX-sprint/
 │               ├── open|closed
-│               ├── README.md, PRD.md, ERD.md  # (you populate)
+│               ├── README.md, PRD.md, ERD.md  # (you populate; ERD = Engineering Requirements Document)
 │               ├── goals/  # Sprint-level goals
 │               └── tickets/
 │                   └── XXXX-ticket/
@@ -108,7 +108,7 @@ The structure is: Phase -> Sprint -> Ticket
 
 Detail level INCREASES as you go down the hierarchy:
 - Phase: High-level objectives, multiple sprints required
-- Sprint: Detailed requirements (PRD/ERD), multiple tickets required  
+- Sprint: Detailed requirements (PRD = Product Requirements Document, ERD = Engineering Requirements Document), multiple tickets required  
 - Ticket: Implementation-level tasks, specific code changes
 
 REQUIREMENTS:

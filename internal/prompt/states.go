@@ -299,7 +299,7 @@ func getCreateSprintInstruction(ctx *ProjectContext) *StateInstruction {
 			"Run: crumbler sprint create",
 			"Populate sprint README.md with sprint objectives",
 			"Populate PRD.md with product requirements for this sprint",
-			"Populate ERD.md with technical design and data models",
+			"Populate ERD.md (Engineering Requirements Document) with technical design and implementation requirements",
 		},
 		Commands: []string{
 			"crumbler sprint create",
@@ -309,7 +309,7 @@ func getCreateSprintInstruction(ctx *ProjectContext) *StateInstruction {
 			"DO NOT create a sprint with 1 ticket that maps 1-1 to sprint goals - break it down!",
 			"The sprint should work toward completing the phase goals",
 			"PRD.md should detail what features/changes will be built",
-			"ERD.md should detail the technical implementation approach",
+			"ERD.md (Engineering Requirements Document) should detail the technical implementation approach, architecture, and engineering requirements",
 			"Sprint goals should be achievable within the sprint timeframe, but require multiple tickets to complete",
 		},
 	}
@@ -340,7 +340,7 @@ func getCreateSprintGoalsInstruction(ctx *ProjectContext) *StateInstruction {
 		Title:       "Create Sprint Goals",
 		Description: fmt.Sprintf("Create goals for sprint %s.", ctx.CurrentSprint.ID),
 		Steps: []string{
-			"Review the sprint PRD.md and ERD.md to understand deliverables",
+			"Review the sprint PRD.md and ERD.md (Engineering Requirements Document) to understand deliverables",
 			"Create goals that represent measurable outcomes for this sprint",
 			"Run: crumbler sprint goal create \"<goal-name>\" for each goal",
 		},
@@ -365,7 +365,7 @@ func getCreateTicketsInstruction(ctx *ProjectContext) *StateInstruction {
 		Title:       "Create Tickets",
 		Description: fmt.Sprintf("Decompose sprint %s into tickets.", ctx.CurrentSprint.ID),
 		Steps: []string{
-			"Review the sprint PRD.md and ERD.md to understand the work",
+			"Review the sprint PRD.md and ERD.md (Engineering Requirements Document) to understand the work",
 			"Break down the work into discrete, implementable tickets",
 			"Create MULTIPLE tickets (typically 3-10+ tickets per sprint)",
 			"For each ticket:",
