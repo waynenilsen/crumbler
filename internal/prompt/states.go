@@ -434,21 +434,48 @@ func getCreateTicketsInstruction(ctx *ProjectContext) *StateInstruction {
 }
 
 func getCloseSprintInstruction(ctx *ProjectContext) *StateInstruction {
+	steps := []string{
+		"Verify all sprint goals have been achieved",
+		"Run: crumbler sprint close",
+		"Review the Phase Goals in the CONTEXT section above",
+		"For each phase goal that relates to this completed sprint, close it:",
+	}
+
+	// Add commands for closing related phase goals
+	var phaseGoalCommands []string
+	if ctx.CurrentPhase != nil && len(ctx.PhaseGoals) > 0 {
+		for _, goal := range ctx.PhaseGoals {
+			if goal.Status == models.StatusOpen {
+				steps = append(steps, fmt.Sprintf("  crumbler phase goal close %s %s", ctx.CurrentPhase.ID, goal.ID))
+				phaseGoalCommands = append(phaseGoalCommands, fmt.Sprintf("crumbler phase goal close %s %s", ctx.CurrentPhase.ID, goal.ID))
+			}
+		}
+	}
+
+	if len(phaseGoalCommands) == 0 {
+		steps = append(steps, "  (Check if any phase goals relate to this sprint's work)")
+	}
+
+	allCommands := []string{
+		fmt.Sprintf("crumbler sprint close %s", ctx.CurrentSprint.ID),
+	}
+	allCommands = append(allCommands, phaseGoalCommands...)
+
+	notes := []string{
+		"All tickets must be done before closing the sprint",
+		"All sprint goals must be closed before closing the sprint",
+		"IMPORTANT: After closing the sprint, review phase goals and close any that are now complete",
+		"Phase goals may be completed by one sprint or multiple sprints - use your judgment to determine if a phase goal is achieved",
+		"If a phase goal relates to the work completed in this sprint, close it now",
+	}
+
 	return &StateInstruction{
 		State:       StateCloseSprint,
 		Title:       "Close Sprint",
-		Description: fmt.Sprintf("Close sprint %s - all tickets and goals are complete.", ctx.CurrentSprint.ID),
-		Steps: []string{
-			"Verify all sprint goals have been achieved",
-			"Run: crumbler sprint close",
-		},
-		Commands: []string{
-			"crumbler sprint close",
-		},
-		Notes: []string{
-			"All tickets must be done before closing the sprint",
-			"All sprint goals must be closed before closing the sprint",
-		},
+		Description: fmt.Sprintf("Close sprint %s - all tickets and goals are complete. Then check and close any related phase goals.", ctx.CurrentSprint.ID),
+		Steps:       steps,
+		Commands:    allCommands,
+		Notes:       notes,
 	}
 }
 
@@ -492,33 +519,71 @@ func getExecuteTicketInstruction(ctx *ProjectContext) *StateInstruction {
 		}
 	}
 
+	notes := append([]string{"Open goals:"}, openGoals...)
+	notes = append(notes, "")
+	notes = append(notes, "TIP: As you complete ticket goals, periodically review sprint goals in the CONTEXT section above.")
+	notes = append(notes, "If completing a ticket goal also completes a sprint goal, you can close that sprint goal now.")
+	notes = append(notes, "You don't have to wait until the ticket is done to close related sprint goals.")
+
+	commands := []string{
+		fmt.Sprintf("crumbler ticket goal close %s <goal-id>", ctx.CurrentTicket.ID),
+	}
+	if ctx.CurrentSprint != nil {
+		commands = append(commands, fmt.Sprintf("crumbler sprint goal close %s <goal-id>", ctx.CurrentSprint.ID))
+	}
+
 	return &StateInstruction{
 		State:       StateExecuteTicket,
 		Title:       "Execute Ticket",
 		Description: fmt.Sprintf("Execute ticket %s - complete the open goals.", ctx.CurrentTicket.ID),
 		Steps:       steps,
-		Commands: []string{
-			fmt.Sprintf("crumbler ticket goal close %s <goal-id>", ctx.CurrentTicket.ID),
-		},
-		Notes: append([]string{"Open goals:"}, openGoals...),
+		Commands:    commands,
+		Notes:       notes,
 	}
 }
 
 func getMarkTicketDoneInstruction(ctx *ProjectContext) *StateInstruction {
+	steps := []string{
+		"Verify the ticket work is complete",
+		fmt.Sprintf("Run: crumbler ticket done %s", ctx.CurrentTicket.ID),
+		"Review the Sprint Goals in the CONTEXT section above",
+		"For each sprint goal that relates to this completed ticket, close it:",
+	}
+
+	// Add commands for closing related sprint goals
+	var sprintGoalCommands []string
+	if ctx.CurrentSprint != nil && len(ctx.SprintGoals) > 0 {
+		for _, goal := range ctx.SprintGoals {
+			if goal.Status == models.StatusOpen {
+				steps = append(steps, fmt.Sprintf("  crumbler sprint goal close %s %s", ctx.CurrentSprint.ID, goal.ID))
+				sprintGoalCommands = append(sprintGoalCommands, fmt.Sprintf("crumbler sprint goal close %s %s", ctx.CurrentSprint.ID, goal.ID))
+			}
+		}
+	}
+
+	if len(sprintGoalCommands) == 0 {
+		steps = append(steps, "  (Check if any sprint goals relate to this ticket's work)")
+	}
+
+	allCommands := []string{
+		fmt.Sprintf("crumbler ticket done %s", ctx.CurrentTicket.ID),
+	}
+	allCommands = append(allCommands, sprintGoalCommands...)
+
+	notes := []string{
+		"All ticket goals must be closed before marking done",
+		"IMPORTANT: After marking the ticket done, review sprint goals and close any that are now complete",
+		"Sprint goals may be completed by one ticket or multiple tickets - use your judgment to determine if a sprint goal is achieved",
+		"If a sprint goal relates to the work completed in this ticket, close it now",
+	}
+
 	return &StateInstruction{
 		State:       StateMarkTicketDone,
 		Title:       "Mark Ticket Done",
-		Description: fmt.Sprintf("Mark ticket %s as done - all goals are complete.", ctx.CurrentTicket.ID),
-		Steps: []string{
-			"Verify the ticket work is complete",
-			fmt.Sprintf("Run: crumbler ticket done %s", ctx.CurrentTicket.ID),
-		},
-		Commands: []string{
-			fmt.Sprintf("crumbler ticket done %s", ctx.CurrentTicket.ID),
-		},
-		Notes: []string{
-			"All ticket goals must be closed before marking done",
-		},
+		Description: fmt.Sprintf("Mark ticket %s as done - all goals are complete. Then check and close any related sprint goals.", ctx.CurrentTicket.ID),
+		Steps:       steps,
+		Commands:    allCommands,
+		Notes:       notes,
 	}
 }
 
