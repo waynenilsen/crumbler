@@ -15,5 +15,8 @@
       "Bash(grep:*)",
       "Bash(gh issue view:*)"
     ]
+  },
+  "env": {
+    "ENABLE_TOOL_SEARCH": "true"
   }
 }
