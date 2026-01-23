@@ -149,7 +149,17 @@ func findCompleteJSON(buffer []byte) (start, end int) {
 
 // processJSONStream processes a stream of JSON objects from the input reader.
 // It reads in chunks, accumulates complete JSON objects, and processes them.
-func processJSONStream(input io.Reader, cfg *display.Config, showUsage bool) error {
+func processJSONStream(input io.Reader, cfg *display.Config, showUsage bool) (err error) {
+	// Top-level panic recovery to ensure we never crash with nonzero exit
+	// Even if the library panics, we want to exit successfully (exit code 0)
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "warning: recovered from panic in processJSONStream: %v\n", r)
+			// Return nil to ensure successful exit code
+			err = nil
+		}
+	}()
+
 	buffer := make([]byte, 0, defaultChunkSize*2)
 	chunk := make([]byte, defaultChunkSize)
 	lineNum := 0
@@ -190,9 +200,11 @@ func processJSONStream(input io.Reader, cfg *display.Config, showUsage bool) err
 				func() {
 					defer func() {
 						if r := recover(); r != nil {
-							// Silently skip objects that cause panics
+							// Always log panic recovery - library crashes should be visible
+							fmt.Fprintf(os.Stderr, "warning: recovered from panic at offset %d: %v\n", jsonStart, r)
 							if cfg.Verbose {
-								fmt.Fprintf(os.Stderr, "warning: skipped JSON object at offset %d due to error: %v\n", jsonStart, r)
+								// In verbose mode, also show the JSON that caused the panic
+								fmt.Fprintf(os.Stderr, "  JSON data: %s\n", string(jsonData))
 							}
 						}
 					}()

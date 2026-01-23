@@ -74,7 +74,16 @@ Important:
 - Do not loop or check for EXIT state yourself
 - Always use crumbler commands for state transitions
 - Populate empty files with meaningful content before proceeding
-- The next call to 'crumbler get-next-prompt' will determine if EXIT state is reached`
+- The next call to 'crumbler get-next-prompt' will determine if EXIT state is reached
+
+🚨 CRITICAL: CODE IS THE SOURCE OF TRUTH
+- Always read and explore the existing codebase to verify what work has actually been done
+- Do NOT create sprints or tickets just to verify that work has been completed - this wastes tokens
+- If code exists that implements goals, close those goals immediately - code state takes precedence over crumbler state
+- This is "belt and suspenders" - code is the authoritative source, crumbler state is secondary
+- Before closing any goal, verify in code that the work is actually implemented
+- Before creating tickets, check if sprint goals are already implemented in code
+- Before creating sprints, check if phase goals are already implemented in code`
 
 // PhaseClosingRules describes when a phase can be closed.
 const PhaseClosingRules = `A phase can be closed when:

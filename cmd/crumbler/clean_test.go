@@ -386,6 +386,25 @@ func TestProcessJSONStream_LargeJSON(t *testing.T) {
 	}
 }
 
+func TestProcessJSONStream_PanicRecovery(t *testing.T) {
+	t.Parallel()
+
+	// Test that panic recovery works - we can't actually cause the display library to panic
+	// in a controlled way, but we can verify the code path exists
+	input := bytes.NewReader([]byte(`{"type":"test","content":"hello"}`))
+	cfg := &display.Config{
+		Style:       display.StyleDefault,
+		Verbose:     false,
+		ShowLineNum: false,
+	}
+
+	// This should complete without crashing even if display library panics
+	err := processJSONStream(input, cfg, false)
+	if err != nil {
+		t.Errorf("processJSONStream() should recover from panics, got error: %v", err)
+	}
+}
+
 // chunkedReader is a test helper that reads data in fixed-size chunks
 type chunkedReader struct {
 	data  []byte

@@ -133,7 +133,9 @@ func DetermineState(ctx *ProjectContext) (State, error) {
 		if !ticketsExist {
 			return StateCreateTickets, nil
 		}
-		// Tickets exist but not all done - this shouldn't happen
+		// Tickets exist but none are open - this means all tickets are done
+		// But sprint goals aren't met, so we need more tickets
+		// Return CREATE_TICKETS but instruction will tell agent to check existing tickets first
 		return StateCreateTickets, nil
 	}
 
@@ -301,6 +303,11 @@ func getCreateSprintInstruction(ctx *ProjectContext) *StateInstruction {
 	}
 
 	notes := []string{
+		"🚨 CRITICAL: DO NOT create sprints just to verify that work has been done",
+		"  - Always read the existing codebase first to check if phase goals are already implemented",
+		"  - If code exists that completes phase goals, close those goals - do NOT create a sprint to verify",
+		"  - Creating sprints/tickets just to verify work wastes tokens and is inefficient",
+		"  - CODE IS THE SOURCE OF TRUTH - verify in code, not by creating crumbler entities",
 		"IMPORTANT: This sprint should be planned to have MULTIPLE tickets (typically 3-10+ tickets)",
 		"DO NOT create a sprint with 1 ticket that maps 1-1 to sprint goals - break it down!",
 	}
@@ -389,47 +396,87 @@ func getCreateSprintGoalsInstruction(ctx *ProjectContext) *StateInstruction {
 }
 
 func getCreateTicketsInstruction(ctx *ProjectContext) *StateInstruction {
+	steps := []string{
+		"🚨 CRITICAL FIRST STEP: Read the existing codebase to check if sprint goals are already implemented",
+		"  - Search for code that implements each sprint goal",
+		"  - If you find code that completes a sprint goal, close that goal immediately:",
+	}
+	
+	// Add commands for closing sprint goals if they exist
+	if ctx.CurrentSprint != nil && len(ctx.SprintGoals) > 0 {
+		for _, goal := range ctx.SprintGoals {
+			if goal.Status == models.StatusOpen {
+				steps = append(steps, fmt.Sprintf("    crumbler sprint goal close %s %s (if code exists)", ctx.CurrentSprint.ID, goal.ID))
+			}
+		}
+	}
+	
+	steps = append(steps,
+		"  - CODE IS THE SOURCE OF TRUTH - if work is done in code, close the goal even if crumbler state says otherwise",
+		"  - This is 'belt and suspenders' - code state takes precedence over crumbler state",
+		"🚨 CRITICAL: Check if tickets already exist in this sprint",
+		"  - List existing tickets: crumbler ticket list",
+		"  - For each existing ticket, read the codebase to verify if work is actually done",
+		"  - If code exists that completes a ticket, mark it done: crumbler ticket done <ticket-id>",
+		"  - DO NOT create duplicate tickets - check existing tickets first",
+		"Review the sprint PRD.md and ERD.md (Engineering Requirements Document) to understand the work",
+		"Read the Ticket Decomposition Guide in the CONTEXT section above for comprehensive guidance on breaking down ERDs into tickets",
+		"Break down the work into discrete, implementable tickets using decomposition strategies from the guide",
+		"Create MULTIPLE tickets (typically 3-10+ tickets per sprint)",
+		"For each ticket:",
+		"  1. Run: crumbler ticket create",
+		"  2. Populate the ticket README.md with:",
+		"     - Clear description of what needs to be done (reference ERD sections)",
+		"     - Acceptance criteria (specific, testable, binary pass/fail)",
+		"     - Technical details (files, components, ERD references)",
+		"     - Dependencies (what blocks this ticket)",
+		"     - Testing requirements",
+		"  3. Ensure each ticket meets INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)",
+	)
+	
+	notes := []string{
+		"🚨 CRITICAL: CODE IS THE SOURCE OF TRUTH",
+		"  - Always read existing code before creating tickets",
+		"  - If sprint goals are already implemented in code, close those goals immediately",
+		"  - Do NOT create tickets just to verify that work has been done - this wastes tokens",
+		"  - Do NOT create duplicate tickets - check existing tickets first",
+		"IMPORTANT: Create MULTIPLE tickets - DO NOT create just 1 ticket per sprint goal!",
+		"A comprehensive Ticket Decomposition Guide has been included in the CONTEXT section above",
+		"Read that guide thoroughly - it contains detailed information about:",
+		"  - How to break down ERDs into tickets using various strategies",
+		"  - What makes a good ticket (INVEST criteria)",
+		"  - Decomposition patterns and anti-patterns",
+		"  - Examples of well-structured tickets",
+		"Each ticket should be a single, focused unit of work that can be completed independently (once dependencies are met)",
+		"Tickets should reference ERD sections (architecture, data models, APIs, etc.)",
+		"Tickets should work toward the sprint goals",
+		"Order tickets by dependency if applicable",
+		"Example: If sprint goal is 'User registration', create tickets like:",
+		"  - Ticket 1: Create User entity and database migration (ERD section 4.1)",
+		"  - Ticket 2: Implement POST /users endpoint (ERD section 5.1)",
+		"  - Ticket 3: Add input validation middleware",
+		"  - Ticket 4: Implement error handling and responses",
+		"  - Ticket 5: Write integration tests for registration flow",
+	}
+	
+	commands := []string{
+		"crumbler ticket create",
+	}
+	if ctx.CurrentSprint != nil && len(ctx.SprintGoals) > 0 {
+		for _, goal := range ctx.SprintGoals {
+			if goal.Status == models.StatusOpen {
+				commands = append(commands, fmt.Sprintf("crumbler sprint goal close %s %s", ctx.CurrentSprint.ID, goal.ID))
+			}
+		}
+	}
+	
 	return &StateInstruction{
 		State:       StateCreateTickets,
 		Title:       "Create Tickets",
-		Description: fmt.Sprintf("Decompose sprint %s into tickets.", ctx.CurrentSprint.ID),
-		Steps: []string{
-			"Review the sprint PRD.md and ERD.md (Engineering Requirements Document) to understand the work",
-			"Read the Ticket Decomposition Guide in the CONTEXT section above for comprehensive guidance on breaking down ERDs into tickets",
-			"Break down the work into discrete, implementable tickets using decomposition strategies from the guide",
-			"Create MULTIPLE tickets (typically 3-10+ tickets per sprint)",
-			"For each ticket:",
-			"  1. Run: crumbler ticket create",
-			"  2. Populate the ticket README.md with:",
-			"     - Clear description of what needs to be done (reference ERD sections)",
-			"     - Acceptance criteria (specific, testable, binary pass/fail)",
-			"     - Technical details (files, components, ERD references)",
-			"     - Dependencies (what blocks this ticket)",
-			"     - Testing requirements",
-			"  3. Ensure each ticket meets INVEST criteria (Independent, Negotiable, Valuable, Estimable, Small, Testable)",
-		},
-		Commands: []string{
-			"crumbler ticket create",
-		},
-		Notes: []string{
-			"IMPORTANT: Create MULTIPLE tickets - DO NOT create just 1 ticket per sprint goal!",
-			"A comprehensive Ticket Decomposition Guide has been included in the CONTEXT section above",
-			"Read that guide thoroughly - it contains detailed information about:",
-			"  - How to break down ERDs into tickets using various strategies",
-			"  - What makes a good ticket (INVEST criteria)",
-			"  - Decomposition patterns and anti-patterns",
-			"  - Examples of well-structured tickets",
-			"Each ticket should be a single, focused unit of work that can be completed independently (once dependencies are met)",
-			"Tickets should reference ERD sections (architecture, data models, APIs, etc.)",
-			"Tickets should work toward the sprint goals",
-			"Order tickets by dependency if applicable",
-			"Example: If sprint goal is 'User registration', create tickets like:",
-			"  - Ticket 1: Create User entity and database migration (ERD section 4.1)",
-			"  - Ticket 2: Implement POST /users endpoint (ERD section 5.1)",
-			"  - Ticket 3: Add input validation middleware",
-			"  - Ticket 4: Implement error handling and responses",
-			"  - Ticket 5: Write integration tests for registration flow",
-		},
+		Description: fmt.Sprintf("Decompose sprint %s into tickets. FIRST: Check if sprint goals are already implemented in code.", ctx.CurrentSprint.ID),
+		Steps:       steps,
+		Commands:    commands,
+		Notes:       notes,
 	}
 }
 
@@ -500,6 +547,15 @@ func getCreateTicketGoalsInstruction(ctx *ProjectContext) *StateInstruction {
 }
 
 func getExecuteTicketInstruction(ctx *ProjectContext) *StateInstruction {
+	// Defensive check - this should never happen in normal flow
+	if ctx.CurrentTicket == nil {
+		return &StateInstruction{
+			State:       StateError,
+			Title:       "Error: No Current Ticket",
+			Description: "Cannot execute ticket - no current ticket found.",
+		}
+	}
+
 	var openGoals []string
 	for _, g := range ctx.TicketGoals {
 		if g.Status == models.StatusOpen {
@@ -509,6 +565,10 @@ func getExecuteTicketInstruction(ctx *ProjectContext) *StateInstruction {
 
 	steps := []string{
 		"Read the ticket README.md for context",
+		"🚨 CRITICAL: Read the existing codebase to verify what work has actually been done",
+		"  - Search for code related to this ticket's goals",
+		"  - If code exists that completes a ticket goal, close that goal immediately",
+		"  - CODE IS THE SOURCE OF TRUTH - verify in code, not just crumbler state",
 		"Work on the open goals listed below",
 		"As you complete each goal, close it:",
 	}
@@ -519,23 +579,43 @@ func getExecuteTicketInstruction(ctx *ProjectContext) *StateInstruction {
 		}
 	}
 
+	steps = append(steps,
+		"🚨 CRITICAL: Periodically review sprint goals in the CONTEXT section above",
+		"  - Read the codebase to verify if sprint goals are actually implemented",
+		"  - If code exists that completes a sprint goal, close that sprint goal NOW",
+		"  - Do NOT wait until the ticket is done - close sprint goals as soon as code verifies they're complete",
+		"  - CODE IS THE SOURCE OF TRUTH - verify in code before closing any sprint goal",
+	)
+
+	var sprintGoalCommands []string
+	if ctx.CurrentSprint != nil && len(ctx.SprintGoals) > 0 {
+		for _, goal := range ctx.SprintGoals {
+			if goal.Status == models.StatusOpen {
+				steps = append(steps, fmt.Sprintf("  crumbler sprint goal close %s %s (if code verifies it's done)", ctx.CurrentSprint.ID, goal.ID))
+				sprintGoalCommands = append(sprintGoalCommands, fmt.Sprintf("crumbler sprint goal close %s %s", ctx.CurrentSprint.ID, goal.ID))
+			}
+		}
+	}
+
 	notes := append([]string{"Open goals:"}, openGoals...)
 	notes = append(notes, "")
-	notes = append(notes, "TIP: As you complete ticket goals, periodically review sprint goals in the CONTEXT section above.")
-	notes = append(notes, "If completing a ticket goal also completes a sprint goal, you can close that sprint goal now.")
-	notes = append(notes, "You don't have to wait until the ticket is done to close related sprint goals.")
+	notes = append(notes, "🚨 CRITICAL: CODE IS THE SOURCE OF TRUTH",
+		"  - Always read and explore the codebase to verify work is actually done",
+		"  - Do NOT rely solely on crumbler state - verify in code",
+		"  - If sprint goals are implemented in code, close them immediately",
+		"  - This is 'belt and suspenders' - code state takes precedence over crumbler state",
+		"  - You don't have to wait until the ticket is done to close related sprint goals",
+		"  - Close sprint goals as soon as code verifies they're complete")
 
 	commands := []string{
 		fmt.Sprintf("crumbler ticket goal close %s <goal-id>", ctx.CurrentTicket.ID),
 	}
-	if ctx.CurrentSprint != nil {
-		commands = append(commands, fmt.Sprintf("crumbler sprint goal close %s <goal-id>", ctx.CurrentSprint.ID))
-	}
+	commands = append(commands, sprintGoalCommands...)
 
 	return &StateInstruction{
 		State:       StateExecuteTicket,
 		Title:       "Execute Ticket",
-		Description: fmt.Sprintf("Execute ticket %s - complete the open goals.", ctx.CurrentTicket.ID),
+		Description: fmt.Sprintf("Execute ticket %s - complete the open goals. Verify work in code before closing goals.", ctx.CurrentTicket.ID),
 		Steps:       steps,
 		Commands:    commands,
 		Notes:       notes,
@@ -544,10 +624,19 @@ func getExecuteTicketInstruction(ctx *ProjectContext) *StateInstruction {
 
 func getMarkTicketDoneInstruction(ctx *ProjectContext) *StateInstruction {
 	steps := []string{
+		"🚨 CRITICAL: Read the codebase to verify the ticket work is actually complete",
+		"  - Search for code that implements this ticket's goals",
+		"  - Verify all ticket goals are implemented in code, not just marked closed in crumbler",
+		"  - CODE IS THE SOURCE OF TRUTH - verify in code before marking done",
 		"Verify the ticket work is complete",
 		fmt.Sprintf("Run: crumbler ticket done %s", ctx.CurrentTicket.ID),
-		"Review the Sprint Goals in the CONTEXT section above",
-		"For each sprint goal that relates to this completed ticket, close it:",
+		"🚨 CRITICAL: Review Sprint Goals in the CONTEXT section above",
+		"  - Read the codebase to verify if sprint goals are actually implemented",
+		"  - For each sprint goal that relates to this completed ticket:",
+		"    1. Search the codebase for code that implements that sprint goal",
+		"    2. If code exists that completes the sprint goal, close it immediately",
+		"    3. CODE IS THE SOURCE OF TRUTH - verify in code before closing",
+		"  - Do NOT close sprint goals without verifying in code first",
 	}
 
 	// Add commands for closing related sprint goals
@@ -555,7 +644,7 @@ func getMarkTicketDoneInstruction(ctx *ProjectContext) *StateInstruction {
 	if ctx.CurrentSprint != nil && len(ctx.SprintGoals) > 0 {
 		for _, goal := range ctx.SprintGoals {
 			if goal.Status == models.StatusOpen {
-				steps = append(steps, fmt.Sprintf("  crumbler sprint goal close %s %s", ctx.CurrentSprint.ID, goal.ID))
+				steps = append(steps, fmt.Sprintf("    crumbler sprint goal close %s %s (if code verifies it's done)", ctx.CurrentSprint.ID, goal.ID))
 				sprintGoalCommands = append(sprintGoalCommands, fmt.Sprintf("crumbler sprint goal close %s %s", ctx.CurrentSprint.ID, goal.ID))
 			}
 		}
@@ -571,16 +660,22 @@ func getMarkTicketDoneInstruction(ctx *ProjectContext) *StateInstruction {
 	allCommands = append(allCommands, sprintGoalCommands...)
 
 	notes := []string{
+		"🚨 CRITICAL: CODE IS THE SOURCE OF TRUTH",
+		"  - Always read and explore the codebase to verify work is actually done",
+		"  - Do NOT rely solely on crumbler state - verify in code",
+		"  - If sprint goals are implemented in code, close them immediately",
+		"  - This is 'belt and suspenders' - code state takes precedence over crumbler state",
 		"All ticket goals must be closed before marking done",
 		"IMPORTANT: After marking the ticket done, review sprint goals and close any that are now complete",
 		"Sprint goals may be completed by one ticket or multiple tickets - use your judgment to determine if a sprint goal is achieved",
 		"If a sprint goal relates to the work completed in this ticket, close it now",
+		"BUT: Always verify in code first - do NOT close sprint goals without code verification",
 	}
 
 	return &StateInstruction{
 		State:       StateMarkTicketDone,
 		Title:       "Mark Ticket Done",
-		Description: fmt.Sprintf("Mark ticket %s as done - all goals are complete. Then check and close any related sprint goals.", ctx.CurrentTicket.ID),
+		Description: fmt.Sprintf("Mark ticket %s as done - all goals are complete. Verify in code, then check and close any related sprint goals.", ctx.CurrentTicket.ID),
 		Steps:       steps,
 		Commands:    allCommands,
 		Notes:       notes,
