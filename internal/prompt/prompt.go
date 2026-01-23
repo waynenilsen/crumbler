@@ -1,284 +1,166 @@
+// Package prompt generates AI agent prompts for crumbler v2.
+// The prompt tells the agent what the current crumb is and what to do with it.
 package prompt
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/waynenilsen/crumbler/internal/query"
+	"github.com/waynenilsen/crumbler/internal/crumb"
 )
 
-// PromptConfig configures prompt generation.
-type PromptConfig struct {
-	IncludePrelude  bool // Include the prelude section
-	IncludePostlude bool // Include the postlude section
-	IncludeContext  bool // Include file contents in context section
-	Minimal         bool // Use minimal versions of prelude/postlude
+// State represents the current state of the crumbler project.
+type State string
+
+const (
+	// StateDecompose indicates the current crumb should be broken down into sub-crumbs.
+	StateDecompose State = "DECOMPOSE"
+
+	// StateExecute indicates the current crumb should be executed (work done).
+	StateExecute State = "EXECUTE"
+
+	// StateDone indicates all work is complete (no crumbs remain).
+	StateDone State = "DONE"
+)
+
+// Config controls prompt generation options.
+type Config struct {
+	// NoPreamble skips the preamble section.
+	NoPreamble bool
+
+	// NoPostamble skips the postamble section.
+	NoPostamble bool
+
+	// NoContext skips the context section (README contents).
+	NoContext bool
+
+	// Minimal uses minimal preamble/postamble.
+	Minimal bool
+
+	// StateOnly outputs only the state name.
+	StateOnly bool
 }
 
-// DefaultConfig returns the default prompt configuration.
-func DefaultConfig() *PromptConfig {
-	return &PromptConfig{
-		IncludePrelude:  true,
-		IncludePostlude: true,
-		IncludeContext:  true,
-		Minimal:         false,
-	}
-}
-
-// GeneratePrompt generates a complete prompt for the AI agent.
-func GeneratePrompt(projectRoot string, config *PromptConfig) (string, error) {
+// GeneratePrompt generates the AI agent prompt for the current project state.
+func GeneratePrompt(root string, config *Config) (string, error) {
 	if config == nil {
-		config = DefaultConfig()
+		config = &Config{}
 	}
 
-	// Gather context
-	ctx, err := GatherContext(projectRoot)
+	// Check if project is done
+	done, err := crumb.IsDone(root)
 	if err != nil {
-		return "", fmt.Errorf("failed to gather context: %w", err)
+		return "", err
 	}
 
-	// Determine state
-	state, err := DetermineState(ctx)
+	if done {
+		if config.StateOnly {
+			return string(StateDone), nil
+		}
+		return formatDonePrompt(config), nil
+	}
+
+	// Get current crumb
+	current, err := crumb.GetCurrent(root)
 	if err != nil {
-		return "", fmt.Errorf("failed to determine state: %w", err)
+		return "", err
 	}
 
-	// Get instruction for this state
-	instruction := GetStateInstruction(state, ctx)
+	if current == nil {
+		if config.StateOnly {
+			return string(StateDone), nil
+		}
+		return formatDonePrompt(config), nil
+	}
 
-	// Build prompt
+	// Determine state based on README content
+	readme, err := current.GetReadme()
+	if err != nil {
+		return "", fmt.Errorf("failed to read README: %w", err)
+	}
+
+	// If README is empty, we're in DECOMPOSE state (need to plan the work)
+	// If README has content, we're in EXECUTE state (do the work)
+	state := StateExecute
+	if strings.TrimSpace(readme) == "" {
+		state = StateDecompose
+	}
+
+	if config.StateOnly {
+		return string(state), nil
+	}
+
+	// Build the full prompt
+	return formatPrompt(root, current, readme, state, config)
+}
+
+// GetState returns just the current state without generating the full prompt.
+func GetState(root string) (State, error) {
+	done, err := crumb.IsDone(root)
+	if err != nil {
+		return "", err
+	}
+	if done {
+		return StateDone, nil
+	}
+
+	current, err := crumb.GetCurrent(root)
+	if err != nil {
+		return "", err
+	}
+	if current == nil {
+		return StateDone, nil
+	}
+
+	readme, err := current.GetReadme()
+	if err != nil {
+		return "", err
+	}
+
+	if strings.TrimSpace(readme) == "" {
+		return StateDecompose, nil
+	}
+	return StateExecute, nil
+}
+
+// formatPrompt builds the complete prompt string.
+func formatPrompt(root string, current *crumb.Crumb, readme string, state State, config *Config) (string, error) {
 	var sb strings.Builder
 
-	// Prelude
-	if config.IncludePrelude {
-		if config.Minimal {
-			sb.WriteString(GeneratePreludeMinimal(ctx, state))
-		} else {
-			sb.WriteString(GeneratePrelude(ctx, state))
-		}
+	// Preamble
+	if !config.NoPreamble {
+		sb.WriteString(formatPreamble(config.Minimal))
+		sb.WriteString("\n")
 	}
 
-	// Context section (file contents)
-	if config.IncludeContext {
-		sb.WriteString(generateContextSection(ctx, state))
+	// Context
+	if !config.NoContext {
+		sb.WriteString(formatContext(root, current, readme))
+		sb.WriteString("\n")
 	}
 
-	// Instruction section
-	sb.WriteString(generateInstructionSection(instruction))
+	// State-specific instructions
+	sb.WriteString(formatInstructions(state, current))
+	sb.WriteString("\n")
 
-	// Postlude
-	if config.IncludePostlude {
-		if config.Minimal {
-			sb.WriteString(GeneratePostludeMinimal(state))
-		} else {
-			sb.WriteString(GeneratePostlude(ctx, state, instruction))
-		}
+	// Postamble
+	if !config.NoPostamble {
+		sb.WriteString(formatPostamble(config.Minimal))
 	}
 
 	return sb.String(), nil
 }
 
-// generateContextSection generates the context section with file contents.
-func generateContextSection(ctx *ProjectContext, state State) string {
+// formatDonePrompt generates the prompt when all work is complete.
+func formatDonePrompt(config *Config) string {
 	var sb strings.Builder
 
-	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n")
-	sb.WriteString("                              CONTEXT                                          \n")
-	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n\n")
+	sb.WriteString("STATE: DONE\n\n")
+	sb.WriteString("All crumbs have been completed. The project is done.\n")
 
-	// PRD and ERD Guides (for sprint creation)
-	if state == StateCreateSprint {
-		prdGuideContent := GetPRDGuide()
-		sb.WriteString("### Product Requirements Document (PRD) Guide\n\n")
-		sb.WriteString("This comprehensive guide provides detailed information about writing effective PRDs based on best practices from leading tech companies:\n\n")
-		sb.WriteString("```\n")
-		sb.WriteString(prdGuideContent)
-		sb.WriteString("\n```\n\n")
-
-		erdGuideContent := GetERDGuide()
-		sb.WriteString("### Engineering Requirements Document (ERD) Guide\n\n")
-		sb.WriteString("This comprehensive guide provides detailed information about writing effective ERDs based on best practices from leading tech companies. IMPORTANT: The PRD must be written FIRST before writing the ERD:\n\n")
-		sb.WriteString("```\n")
-		sb.WriteString(erdGuideContent)
-		sb.WriteString("\n```\n\n")
-
-		// Tech Debt Guide (for first sprint only)
-		isFirstSprint := false
-		if ctx.CurrentPhase != nil {
-			sprintsExist, err := query.SprintsExist(ctx.CurrentPhase.Path)
-			if err == nil && !sprintsExist {
-				isFirstSprint = true
-			}
-		}
-		if isFirstSprint {
-			guideContent := GetTechDebtGuide()
-			sb.WriteString("### Tech Debt Paydown Guide\n\n")
-			sb.WriteString("This comprehensive guide provides detailed information about technical debt and how to plan a tech debt paydown sprint:\n\n")
-			sb.WriteString("```\n")
-			sb.WriteString(guideContent)
-			sb.WriteString("\n```\n\n")
-		}
-	}
-
-	// Ticket Decomposition Guide (for ticket creation)
-	if state == StateCreateTickets {
-		guideContent := GetTicketDecompositionGuide()
-		sb.WriteString("### Ticket Decomposition Guide\n\n")
-		sb.WriteString("This comprehensive guide provides detailed information about breaking down ERDs and epics into individual tickets based on best practices from leading tech companies. IMPORTANT: The ERD must be completed before breaking down into tickets:\n\n")
-		sb.WriteString("```\n")
-		sb.WriteString(guideContent)
-		sb.WriteString("\n```\n\n")
-	}
-
-	// Roadmap (always relevant)
-	if ctx.Roadmap != nil && !ctx.Roadmap.Missing {
-		sb.WriteString(formatFileContent(ctx.Roadmap))
-		sb.WriteString("\n")
-	}
-
-	// Phase context (if phase exists or being created)
-	if ctx.CurrentPhase != nil {
-		// Phase goals
-		if len(ctx.PhaseGoals) > 0 {
-			sb.WriteString("### Phase Goals\n\n")
-			sb.WriteString(FormatGoalsList(ctx.PhaseGoals))
-			sb.WriteString("\n\n")
-		}
-
-		// Phase README
-		if ctx.PhaseReadme != nil && !ctx.PhaseReadme.Missing {
-			sb.WriteString(formatFileContent(ctx.PhaseReadme))
-			sb.WriteString("\n")
-		}
-	}
-
-	// Sprint context (if sprint exists)
-	if ctx.CurrentSprint != nil {
-		// Sprint goals
-		if len(ctx.SprintGoals) > 0 {
-			sb.WriteString("### Sprint Goals\n\n")
-			sb.WriteString(FormatGoalsList(ctx.SprintGoals))
-			sb.WriteString("\n\n")
-		}
-
-		// Sprint files
-		if ctx.SprintReadme != nil && !ctx.SprintReadme.Missing {
-			sb.WriteString(formatFileContent(ctx.SprintReadme))
-			sb.WriteString("\n")
-		}
-		if ctx.SprintPRD != nil && !ctx.SprintPRD.Missing {
-			sb.WriteString(formatFileContent(ctx.SprintPRD))
-			sb.WriteString("\n")
-		}
-		if ctx.SprintERD != nil && !ctx.SprintERD.Missing {
-			sb.WriteString(formatFileContent(ctx.SprintERD))
-			sb.WriteString("\n")
-		}
-	}
-
-	// Ticket context (if ticket exists)
-	if ctx.CurrentTicket != nil {
-		// Ticket goals
-		if len(ctx.TicketGoals) > 0 {
-			sb.WriteString("### Ticket Goals\n\n")
-			sb.WriteString(FormatGoalsList(ctx.TicketGoals))
-			sb.WriteString("\n\n")
-		}
-
-		// Ticket README
-		if ctx.TicketReadme != nil && !ctx.TicketReadme.Missing {
-			sb.WriteString(formatFileContent(ctx.TicketReadme))
-			sb.WriteString("\n")
-		}
-	}
-
-	// List all open tickets if multiple
-	if len(ctx.OpenTickets) > 1 {
-		sb.WriteString("### Open Tickets in Sprint\n\n")
-		for _, t := range ctx.OpenTickets {
-			status := "OPEN"
-			sb.WriteString(fmt.Sprintf("- %s (%s)\n", t.ID, status))
-		}
-		sb.WriteString("\n")
+	if !config.NoPostamble && !config.Minimal {
+		sb.WriteString("\nNo further action is required.\n")
 	}
 
 	return sb.String()
-}
-
-// formatFileContent formats a context file for display.
-func formatFileContent(cf *ContextFile) string {
-	var sb strings.Builder
-
-	sb.WriteString(fmt.Sprintf("### %s\n\n", cf.RelPath))
-
-	if cf.Missing {
-		sb.WriteString("(file does not exist)\n")
-	} else if cf.Empty {
-		sb.WriteString("(file is empty - YOU MUST POPULATE THIS)\n")
-	} else {
-		// Truncate very long content
-		content := cf.Contents
-		const maxLen = 4000
-		if len(content) > maxLen {
-			content = content[:maxLen] + "\n... (truncated)"
-		}
-		sb.WriteString("```\n")
-		sb.WriteString(content)
-		sb.WriteString("\n```\n")
-	}
-
-	return sb.String()
-}
-
-// generateInstructionSection generates the instruction section.
-func generateInstructionSection(instruction *StateInstruction) string {
-	var sb strings.Builder
-
-	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n")
-	sb.WriteString("                             INSTRUCTION                                       \n")
-	sb.WriteString("═══════════════════════════════════════════════════════════════════════════════\n\n")
-
-	// Title and description
-	sb.WriteString(fmt.Sprintf("## %s\n\n", instruction.Title))
-	sb.WriteString(instruction.Description)
-	sb.WriteString("\n\n")
-
-	// Steps
-	if len(instruction.Steps) > 0 {
-		sb.WriteString("### Steps\n\n")
-		for i, step := range instruction.Steps {
-			sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, step))
-		}
-		sb.WriteString("\n")
-	}
-
-	// Notes
-	if len(instruction.Notes) > 0 {
-		sb.WriteString("### Notes\n\n")
-		for _, note := range instruction.Notes {
-			sb.WriteString(fmt.Sprintf("- %s\n", note))
-		}
-		sb.WriteString("\n")
-	}
-
-	return sb.String()
-}
-
-// GetState returns just the current state without generating the full prompt.
-func GetState(projectRoot string) (State, error) {
-	ctx, err := GatherContext(projectRoot)
-	if err != nil {
-		return StateError, fmt.Errorf("failed to gather context: %w", err)
-	}
-
-	return DetermineState(ctx)
-}
-
-// GetStateString returns the current state as a string.
-func GetStateString(projectRoot string) (string, error) {
-	state, err := GetState(projectRoot)
-	if err != nil {
-		return "", err
-	}
-	return string(state), nil
 }

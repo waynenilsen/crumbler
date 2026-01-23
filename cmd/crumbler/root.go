@@ -4,6 +4,9 @@ package crumbler
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/waynenilsen/crumbler/internal/crumb"
 )
 
 // Execute is the main entry point for the CLI, called from main.go.
@@ -26,23 +29,21 @@ func Execute() error {
 	// Route to subcommand
 	switch args[0] {
 	case "help":
-		return runHelp(args[1:])
-	case "init":
-		return runInit(args[1:])
+		if len(args) > 1 {
+			return runHelpFor(args[1])
+		}
+		printTopLevelHelp()
+		return nil
 	case "status":
 		return runStatus(args[1:])
-	case "phase":
-		return runPhase(args[1:])
-	case "sprint":
-		return runSprint(args[1:])
-	case "ticket":
-		return runTicket(args[1:])
-	case "roadmap":
-		return runRoadmap(args[1:])
+	case "create":
+		return runCreate(args[1:])
+	case "delete":
+		return runDelete(args[1:])
+	case "prompt":
+		return runPrompt(args[1:])
 	case "clean":
 		return runClean(args[1:])
-	case "get-next-prompt":
-		return runGetNextPrompt(args[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown command '%s'\n\n", args[0])
 		printTopLevelHelp()
@@ -50,122 +51,116 @@ func Execute() error {
 	}
 }
 
+// runHelpFor prints help for a specific command.
+func runHelpFor(cmd string) error {
+	switch cmd {
+	case "status":
+		return runStatus([]string{"--help"})
+	case "create":
+		return runCreate([]string{"--help"})
+	case "delete":
+		return runDelete([]string{"--help"})
+	case "prompt":
+		return runPrompt([]string{"--help"})
+	case "clean":
+		return runClean([]string{"--help"})
+	default:
+		return fmt.Errorf("unknown command: %s", cmd)
+	}
+}
+
 // printTopLevelHelp prints the top-level help message.
 func printTopLevelHelp() {
-	fmt.Print(`crumbler - Agentic SDLC State Machine Manager
+	fmt.Print(`crumbler - Simple Task Decomposition for AI Agents
 
-crumbler is a lightweight CLI tool for managing software development lifecycle
-state. It manages state transitions, directory structure, and validates the
-state machine integrity. It does NOT generate content - AI agents are
-responsible for populating document content.
+crumbler organizes work into "crumbs" - directories with README.md files.
+Work depth-first: complete children before parents. Delete crumbs when done.
+The filesystem IS the state - existence means work to do, deletion means done.
 
 USAGE:
-    crumbler <command> [subcommand] [options]
+    crumbler <command> [options]
 
 COMMANDS:
-    init            Initialize a new crumbler project in the current directory
-    status          Show current state of the project
-    phase           Manage phases (list, create, close, goal)
-    sprint          Manage sprints (list, create, close, goal)
-    ticket          Manage tickets (list, create, done, goal)
-    roadmap         Manage roadmap (load, show)
-    get-next-prompt Generate AI agent prompt based on current state
-    clean           Format Claude Code streaming JSON output
-    help            Show help for a command
+    status    Show crumb tree and current state
+    create    Create a new sub-crumb (auto-initializes if needed)
+    delete    Delete the current crumb (mark work as done)
+    prompt    Generate AI agent prompt for current state
+    clean     Format Claude Code streaming JSON output
+    help      Show help for a command
 
 FLAGS:
     -h, --help  Show this help message
 
+WORKFLOW:
+    1. crumbler create "Task"     # Create first crumb (auto-inits)
+    2. crumbler prompt            # Get AI instructions
+    3. [Do the work]              # Follow instructions
+    4. crumbler delete            # Mark crumb as done
+    5. crumbler prompt            # Get next instructions
+    6. Repeat until done
+
 EXAMPLES:
-    crumbler init                           Initialize project
-    crumbler status                         Show project status
-    crumbler phase list                     List all phases
-    crumbler phase create                   Create next phase
-    crumbler sprint create                  Create sprint in current phase
-    crumbler ticket done 0001               Mark ticket as done
-    crumbler clean                           Format Claude Code JSON output
-    crumbler help phase                     Show phase command help
+    crumbler create "Setup Database"     # Create crumb (auto-inits)
+    crumbler prompt                      # Get instructions
+    crumbler status                      # View crumb tree
+    crumbler delete                      # Mark done
+    crumbler help create                 # Get command help
 
-PROJECT STRUCTURE:
-    .crumbler/                              State directory (created on init)
-    .crumbler/README.md                     Project overview
-    .crumbler/roadmap.md                    Current roadmap
-    .crumbler/phases/                       All phases
-    .crumbler/phases/XXXX-phase/            Phase directory
-    .crumbler/phases/XXXX-phase/open        Phase is open (empty file)
-    .crumbler/phases/XXXX-phase/closed      Phase is closed (empty file)
-    .crumbler/phases/XXXX-phase/sprints/    Sprints in this phase
-    .crumbler/phases/XXXX-phase/goals/      Goals for this phase
-    .crumbler/roadmaps/                     Roadmap archives
+STRUCTURE:
+    .crumbler/                           # Project root (auto-created)
+    ├── README.md                        # Root crumb
+    ├── 01-phase-one/                    # First child crumb
+    │   ├── README.md                    # Task instructions
+    │   └── 01-subtask/                  # Nested crumb
+    │       └── README.md
+    └── 02-phase-two/
+        └── README.md
 
-STATE FILES:
-    open        Entity is open (phase, sprint, ticket, goal)
-    closed      Entity is closed (phase, sprint, goal)
-    done        Ticket is complete
-
-For more information on a specific command, use:
-    crumbler help <command>
-    crumbler <command> --help
+For more information: crumbler help <command>
 `)
 }
 
 // findProjectRoot locates the .crumbler directory by walking up from pwd.
-// Returns the path to the project root (directory containing .crumbler) or
-// an error if not found.
+// If .crumbler exists, returns path to directory containing it.
+// If .crumbler doesn't exist, returns current working directory.
 func findProjectRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 
+	// Walk up to find existing .crumbler
+	searchDir := dir
 	for {
-		crumblerDir := dir + "/.crumbler"
+		crumblerDir := filepath.Join(searchDir, crumb.CrumblerDir)
 		if info, err := os.Stat(crumblerDir); err == nil && info.IsDir() {
+			return searchDir, nil
+		}
+
+		parent := filepath.Dir(searchDir)
+		if parent == searchDir {
+			// No .crumbler found - return cwd (create will auto-init)
 			return dir, nil
 		}
-
-		parent := dir[:max(0, len(dir)-len("/"+lastPathComponent(dir)))]
-		if parent == dir || parent == "" {
-			return "", fmt.Errorf("not a crumbler project (no .crumbler directory found)")
-		}
-		dir = parent
+		searchDir = parent
 	}
 }
 
-// lastPathComponent returns the last component of a path.
-func lastPathComponent(path string) string {
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' {
-			return path[i+1:]
-		}
-	}
-	return path
-}
-
-// requireProject ensures we are in a crumbler-managed project.
-// Returns the project root or an error if not in a project.
-func requireProject() (string, error) {
-	root, err := findProjectRoot()
-	if err != nil {
-		return "", fmt.Errorf("error: %w\n\nRun 'crumbler init' to initialize a new project", err)
-	}
-	return root, nil
+// getProjectRoot returns the project root (cwd or directory with .crumbler).
+func getProjectRoot() (string, error) {
+	return findProjectRoot()
 }
 
 // crumblerDir returns the path to the .crumbler directory.
 func crumblerDir(projectRoot string) string {
-	return projectRoot + "/.crumbler"
-}
-
-// phasesDir returns the path to the phases directory.
-func phasesDir(projectRoot string) string {
-	return crumblerDir(projectRoot) + "/phases"
+	return filepath.Join(projectRoot, crumb.CrumblerDir)
 }
 
 // relPath returns a path relative to the project root.
 func relPath(projectRoot, fullPath string) string {
-	if len(fullPath) > len(projectRoot)+1 {
-		return fullPath[len(projectRoot)+1:]
+	rel, err := filepath.Rel(projectRoot, fullPath)
+	if err != nil {
+		return fullPath
 	}
-	return fullPath
+	return rel
 }

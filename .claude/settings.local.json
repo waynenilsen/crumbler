@@ -1,4 +1,7 @@
 {
+  "env": {
+    "ENABLE_TOOL_SEARCH": "true"
+  },
   "permissions": {
     "allow": [
       "Bash(go mod init:*)",
@@ -13,10 +16,10 @@
       "Bash(./crumbler:*)",
       "Bash(/Users/waynenilsen/git/crumbler/crumbler phase create:*)",
       "Bash(grep:*)",
-      "Bash(gh issue view:*)"
+      "Bash(gh issue view:*)",
+      "Bash(done)",
+      "Bash(xxd:*)",
+      "Bash(/Users/waynenilsen/git/crumbler/crumbler status)"
     ]
-  },
-  "env": {
-    "ENABLE_TOOL_SEARCH": "true"
   }
 }

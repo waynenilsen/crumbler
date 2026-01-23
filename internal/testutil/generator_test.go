@@ -101,89 +101,60 @@ func TestGenerateRandomStringUnique(t *testing.T) {
 	}
 }
 
-func TestGenerateRealisticMarkdown(t *testing.T) {
+func TestGenerateCrumbReadme(t *testing.T) {
 	t.Parallel()
 
-	docTypes := []struct {
-		docType       string
-		expectedTitle string
-	}{
-		{"README", "# Project Overview"},
-		{"PRD", "# Product Requirements Document"},
-		{"ERD", "# Entity Relationship Diagram"},
-		{"roadmap", "# Project Roadmap"},
-		{"phase", "# Phase Description"},
-		{"sprint", "# Sprint Description"},
-		{"ticket", "# Ticket Description"},
-		{"unknown", "# unknown"},
+	result := GenerateCrumbReadme()
+
+	if len(result) == 0 {
+		t.Error("GenerateCrumbReadme returned empty string")
 	}
 
-	for _, tt := range docTypes {
-		t.Run(tt.docType, func(t *testing.T) {
-			t.Parallel()
-			result := GenerateRealisticMarkdown(tt.docType)
+	if !strings.Contains(result, "# Task Description") {
+		t.Errorf("GenerateCrumbReadme should contain title, got:\n%s", result[:min(100, len(result))])
+	}
 
-			if len(result) == 0 {
-				t.Errorf("GenerateRealisticMarkdown(%q) returned empty string", tt.docType)
-			}
-
-			if !strings.Contains(result, tt.expectedTitle) {
-				t.Errorf("GenerateRealisticMarkdown(%q) should contain %q, got:\n%s",
-					tt.docType, tt.expectedTitle, result[:min(100, len(result))])
-			}
-		})
+	if !strings.Contains(result, "## Acceptance Criteria") {
+		t.Errorf("GenerateCrumbReadme should contain acceptance criteria section")
 	}
 }
 
-func TestGenerateRealisticMarkdownCaseInsensitive(t *testing.T) {
+func TestGenerateTaskName(t *testing.T) {
 	t.Parallel()
 
-	// Test that docType is case insensitive
-	result1 := GenerateRealisticMarkdown("README")
-	result2 := GenerateRealisticMarkdown("readme")
-	result3 := GenerateRealisticMarkdown("ReadMe")
-
-	if result1 != result2 || result2 != result3 {
-		t.Errorf("GenerateRealisticMarkdown should be case insensitive")
-	}
-}
-
-func TestGenerateGoalName(t *testing.T) {
-	t.Parallel()
-
-	// Generate multiple goal names and check they're valid
+	// Generate multiple task names and check they're valid
 	for i := 0; i < 20; i++ {
-		result := GenerateGoalName()
+		result := GenerateTaskName()
 
 		if len(result) == 0 {
-			t.Errorf("GenerateGoalName returned empty string")
+			t.Errorf("GenerateTaskName returned empty string")
 		}
 
 		// Check that it contains a space (verb + noun)
 		if !strings.Contains(result, " ") {
-			t.Errorf("GenerateGoalName should contain a space: %s", result)
+			t.Errorf("GenerateTaskName should contain a space: %s", result)
 		}
 
 		// Check that it starts with a capital letter (verb)
 		if result[0] < 'A' || result[0] > 'Z' {
-			t.Errorf("GenerateGoalName should start with capital letter: %s", result)
+			t.Errorf("GenerateTaskName should start with capital letter: %s", result)
 		}
 	}
 }
 
-func TestGenerateGoalNameUnique(t *testing.T) {
+func TestGenerateTaskNameUnique(t *testing.T) {
 	t.Parallel()
 
 	// While not guaranteed unique, we should get some variety
 	seen := make(map[string]int)
 	for i := 0; i < 50; i++ {
-		result := GenerateGoalName()
+		result := GenerateTaskName()
 		seen[result]++
 	}
 
-	// We should have at least 5 different goal names out of 50
+	// We should have at least 5 different task names out of 50
 	if len(seen) < 5 {
-		t.Errorf("GenerateGoalName should produce variety, only got %d unique names", len(seen))
+		t.Errorf("GenerateTaskName should produce variety, only got %d unique names", len(seen))
 	}
 }
 

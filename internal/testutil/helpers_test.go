@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/waynenilsen/crumbler/internal/crumb"
 )
 
 func TestAssertFileExists(t *testing.T) {
@@ -14,7 +16,7 @@ func TestAssertFileExists(t *testing.T) {
 	root := builder.Build()
 
 	// Test with existing file
-	existingFile := filepath.Join(root, ".crumbler", "README.md")
+	existingFile := filepath.Join(root, crumb.CrumblerDir, crumb.ReadmeFile)
 	AssertFileExists(t, existingFile) // Should not fail
 }
 
@@ -36,7 +38,7 @@ func TestAssertDirExists(t *testing.T) {
 	root := builder.Build()
 
 	// Test with existing directory
-	existingDir := filepath.Join(root, ".crumbler", "phases")
+	existingDir := filepath.Join(root, crumb.CrumblerDir)
 	AssertDirExists(t, existingDir) // Should not fail
 }
 
@@ -55,73 +57,21 @@ func TestAssertFileContent(t *testing.T) {
 	t.Parallel()
 
 	builder := NewTestProject(t)
-	root := builder.WithRoadmap("# Test Roadmap\n").Build()
+	root := builder.WithCrumb("01-task", "# Test Content\n").Build()
 
-	roadmapFile := filepath.Join(root, ".crumbler", "roadmap.md")
-	AssertFileContent(t, roadmapFile, "# Test Roadmap\n") // Should not fail
+	contentFile := filepath.Join(root, crumb.CrumblerDir, "01-task", crumb.ReadmeFile)
+	AssertFileContent(t, contentFile, "# Test Content\n") // Should not fail
 }
 
 func TestAssertFileContains(t *testing.T) {
 	t.Parallel()
 
 	builder := NewTestProject(t)
-	root := builder.WithRoadmap("# Test Roadmap\nThis is a test.\n").Build()
+	root := builder.WithCrumb("01-task", "# Test Readme\nThis is a test.\n").Build()
 
-	roadmapFile := filepath.Join(root, ".crumbler", "roadmap.md")
-	AssertFileContains(t, roadmapFile, "Test Roadmap") // Should not fail
-	AssertFileContains(t, roadmapFile, "test")         // Should not fail
-}
-
-func TestAssertStatus(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhase("0001", "open").
-		WithPhase("0002", "closed").
-		WithTicket("0003", "0001", "0001", "done").
-		Build()
-
-	// Test open status
-	phase1 := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	AssertStatus(t, phase1, "open")
-
-	// Test closed status
-	phase2 := filepath.Join(root, ".crumbler", "phases", "0002-phase")
-	AssertStatus(t, phase2, "closed")
-
-	// Test done status
-	ticket := filepath.Join(root, ".crumbler", "phases", "0003-phase", "sprints", "0001-sprint", "tickets", "0001-ticket")
-	AssertStatus(t, ticket, "done")
-}
-
-func TestAssertGoalStatus(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhaseGoal("0001", 1, "Open Goal", "open").
-		WithPhaseGoal("0001", 2, "Closed Goal", "closed").
-		Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	goal1 := filepath.Join(phasePath, "goals", "0001-goal")
-	goal2 := filepath.Join(phasePath, "goals", "0002-goal")
-
-	AssertGoalStatus(t, goal1, "open")
-	AssertGoalStatus(t, goal2, "closed")
-}
-
-func TestAssertGoalName(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhaseGoal("0001", 1, "My Custom Goal", "open").
-		Build()
-
-	goalPath := filepath.Join(root, ".crumbler", "phases", "0001-phase", "goals", "0001-goal")
-	AssertGoalName(t, goalPath, "My Custom Goal")
+	contentFile := filepath.Join(root, crumb.CrumblerDir, "01-task", crumb.ReadmeFile)
+	AssertFileContains(t, contentFile, "Test Readme") // Should not fail
+	AssertFileContains(t, contentFile, "test")        // Should not fail
 }
 
 func TestAssertError(t *testing.T) {
@@ -150,10 +100,10 @@ func TestReadFile(t *testing.T) {
 	t.Parallel()
 
 	builder := NewTestProject(t)
-	root := builder.WithRoadmap("# Custom Content\n").Build()
+	root := builder.WithCrumb("01-task", "# Custom Content\n").Build()
 
-	roadmapFile := filepath.Join(root, ".crumbler", "roadmap.md")
-	content := ReadFile(t, roadmapFile)
+	contentFile := filepath.Join(root, crumb.CrumblerDir, "01-task", crumb.ReadmeFile)
+	content := ReadFile(t, contentFile)
 
 	if content != "# Custom Content\n" {
 		t.Errorf("ReadFile returned unexpected content: %s", content)
@@ -165,15 +115,16 @@ func TestListDir(t *testing.T) {
 
 	builder := NewTestProject(t)
 	root := builder.
-		WithPhase("0001", "open").
-		WithPhase("0002", "closed").
+		WithCrumb("01-first", "").
+		WithCrumb("02-second", "").
 		Build()
 
-	phasesDir := filepath.Join(root, ".crumbler", "phases")
-	entries := ListDir(t, phasesDir)
+	crumblerDir := filepath.Join(root, crumb.CrumblerDir)
+	entries := ListDir(t, crumblerDir)
 
-	if len(entries) != 2 {
-		t.Errorf("expected 2 entries, got %d: %v", len(entries), entries)
+	// Should have 01-first, 02-second, README.md
+	if len(entries) != 3 {
+		t.Errorf("expected 3 entries, got %d: %v", len(entries), entries)
 	}
 }
 
@@ -182,16 +133,16 @@ func TestListDirRecursive(t *testing.T) {
 
 	builder := NewTestProject(t)
 	root := builder.
-		WithPhase("0001", "open").
-		WithPhaseGoal("0001", 1, "Goal", "open").
+		WithCrumb("01-phase", "Phase content").
+		WithCrumb("01-phase/01-task", "Task content").
 		Build()
 
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
+	phasePath := filepath.Join(root, crumb.CrumblerDir, "01-phase")
 	entries := ListDirRecursive(t, phasePath)
 
-	// Should include: README.md, open, goals/, goals/0001-goal/, goals/0001-goal/name, goals/0001-goal/open, sprints/
-	if len(entries) < 5 {
-		t.Errorf("expected at least 5 entries, got %d: %v", len(entries), entries)
+	// Should include: README.md, 01-task/, 01-task/README.md
+	if len(entries) < 2 {
+		t.Errorf("expected at least 2 entries, got %d: %v", len(entries), entries)
 	}
 }
 
@@ -201,7 +152,7 @@ func TestWriteFile(t *testing.T) {
 	builder := NewTestProject(t)
 	root := builder.Build()
 
-	testFile := filepath.Join(root, "test-dir", "test.txt")
+	testFile := filepath.Join(root, "test.txt")
 	WriteFile(t, testFile, "test content")
 
 	content := ReadFile(t, testFile)
@@ -250,135 +201,4 @@ func TestCreateDir(t *testing.T) {
 	CreateDir(t, testDir)
 
 	AssertDirExists(t, testDir)
-}
-
-func TestTouchStatusFile(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.Build()
-
-	testDir := filepath.Join(root, "status-test")
-	CreateDir(t, testDir)
-	TouchStatusFile(t, testDir, "open")
-
-	AssertFileExists(t, filepath.Join(testDir, "open"))
-}
-
-func TestSetStatus(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.WithPhase("0001", "open").Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-
-	// Initially open
-	AssertStatus(t, phasePath, "open")
-
-	// Change to closed
-	SetStatus(t, phasePath, "closed")
-	AssertStatus(t, phasePath, "closed")
-
-	// Verify open file was removed
-	AssertFileNotExists(t, filepath.Join(phasePath, "open"))
-}
-
-func TestCountGoals(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhase("0001", "open").
-		WithPhaseGoal("0001", 1, "Goal 1", "open").
-		WithPhaseGoal("0001", 2, "Goal 2", "closed").
-		WithPhaseGoal("0001", 3, "Goal 3", "open").
-		Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	count := CountGoals(t, phasePath)
-
-	if count != 3 {
-		t.Errorf("expected 3 goals, got %d", count)
-	}
-}
-
-func TestCountGoalsEmpty(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.WithPhase("0001", "open").Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	count := CountGoals(t, phasePath)
-
-	if count != 0 {
-		t.Errorf("expected 0 goals, got %d", count)
-	}
-}
-
-func TestGetOpenGoals(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhase("0001", "open").
-		WithPhaseGoal("0001", 1, "Goal 1", "open").
-		WithPhaseGoal("0001", 2, "Goal 2", "closed").
-		WithPhaseGoal("0001", 3, "Goal 3", "open").
-		Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	openGoals := GetOpenGoals(t, phasePath)
-
-	if len(openGoals) != 2 {
-		t.Errorf("expected 2 open goals, got %d: %v", len(openGoals), openGoals)
-	}
-}
-
-func TestGetClosedGoals(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhase("0001", "open").
-		WithPhaseGoal("0001", 1, "Goal 1", "open").
-		WithPhaseGoal("0001", 2, "Goal 2", "closed").
-		WithPhaseGoal("0001", 3, "Goal 3", "closed").
-		Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	closedGoals := GetClosedGoals(t, phasePath)
-
-	if len(closedGoals) != 2 {
-		t.Errorf("expected 2 closed goals, got %d: %v", len(closedGoals), closedGoals)
-	}
-}
-
-func TestAssertAllGoalsClosed(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhase("0001", "open").
-		WithPhaseGoal("0001", 1, "Goal 1", "closed").
-		WithPhaseGoal("0001", 2, "Goal 2", "closed").
-		Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	AssertAllGoalsClosed(t, phasePath) // Should not fail
-}
-
-func TestAssertGoalCount(t *testing.T) {
-	t.Parallel()
-
-	builder := NewTestProject(t)
-	root := builder.
-		WithPhase("0001", "open").
-		WithPhaseGoal("0001", 1, "Goal 1", "open").
-		WithPhaseGoal("0001", 2, "Goal 2", "closed").
-		Build()
-
-	phasePath := filepath.Join(root, ".crumbler", "phases", "0001-phase")
-	AssertGoalCount(t, phasePath, 2) // Should not fail
 }
