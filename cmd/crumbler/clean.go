@@ -1,7 +1,6 @@
 package crumbler
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +9,11 @@ import (
 
 	"github.com/ariel-frischer/claude-clean/display"
 	"github.com/ariel-frischer/claude-clean/parser"
+)
+
+const (
+	defaultChunkSize = 8 * 1024  // 8KB chunks
+	maxBufferSize    = 10 * 1024 * 1024 // 10MB max buffer
 )
 
 // runClean handles the 'crumbler clean' command.
@@ -65,35 +69,185 @@ func runClean(args []string) error {
 		input = os.Stdin
 	}
 
-	// Process input line by line
-	scanner := bufio.NewScanner(input)
-	lineNum := 0
+	// Process input stream
+	return processJSONStream(input, cfg, showUsage)
+}
 
-	for scanner.Scan() {
-		lineNum++
-		line := scanner.Text()
-		if strings.TrimSpace(line) == "" {
+// skipWhitespace removes leading whitespace from buffer, handling CRLF, LF, CR, spaces, and tabs.
+// Returns the number of bytes skipped.
+func skipWhitespace(buffer []byte) int {
+	start := 0
+	for start < len(buffer) {
+		b := buffer[start]
+		if b == ' ' || b == '\t' {
+			start++
+		} else if b == '\r' {
+			// Handle CRLF (\r\n) as a unit, or standalone CR
+			if start+1 < len(buffer) && buffer[start+1] == '\n' {
+				start += 2 // Skip CRLF
+			} else {
+				start++ // Skip standalone CR
+			}
+		} else if b == '\n' {
+			start++ // Skip LF
+		} else {
+			break // Non-whitespace found
+		}
+	}
+	return start
+}
+
+// findCompleteJSON finds the first complete JSON object in the buffer by tracking brace depth.
+// Returns the start and end indices of the JSON object, or -1, -1 if no complete object found.
+// Handles strings and escape sequences correctly.
+func findCompleteJSON(buffer []byte) (start, end int) {
+	start = -1
+	end = -1
+	depth := 0
+	inString := false
+	escapeNext := false
+
+	for i := 0; i < len(buffer); i++ {
+		b := buffer[i]
+
+		if escapeNext {
+			escapeNext = false
 			continue
 		}
 
-		// Parse JSON line
-		var msg parser.StreamMessage
-		if err := json.Unmarshal([]byte(line), &msg); err != nil {
-			// Skip invalid JSON lines
+		if b == '\\' {
+			escapeNext = true
 			continue
 		}
 
-		// Display the message
-		display.DisplayMessage(&msg, lineNum, cfg)
+		if b == '"' {
+			inString = !inString
+			continue
+		}
 
-		// Show usage if requested
-		if showUsage && msg.Usage != nil {
-			display.DisplayUsage(msg.Usage)
+		if inString {
+			continue
+		}
+
+		// Track brace depth to find complete objects
+		if b == '{' {
+			if start == -1 {
+				start = i
+			}
+			depth++
+		} else if b == '}' {
+			depth--
+			if depth == 0 && start != -1 {
+				end = i + 1
+				break
+			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading input: %w", err)
+	return start, end
+}
+
+// processJSONStream processes a stream of JSON objects from the input reader.
+// It reads in chunks, accumulates complete JSON objects, and processes them.
+func processJSONStream(input io.Reader, cfg *display.Config, showUsage bool) error {
+	buffer := make([]byte, 0, defaultChunkSize*2)
+	chunk := make([]byte, defaultChunkSize)
+	lineNum := 0
+
+	var readErr error
+	for {
+		// Read chunk from input
+		n, err := input.Read(chunk)
+		if n > 0 {
+			// Append chunk to buffer
+			buffer = append(buffer, chunk[:n]...)
+		}
+		
+		// Track EOF separately - Read can return data AND EOF
+		if err == io.EOF {
+			readErr = io.EOF
+		} else if err != nil {
+			return fmt.Errorf("error reading input: %w", err)
+		}
+
+		// Process complete JSON objects from buffer
+		processed := false
+		for {
+			// Skip leading whitespace
+			skip := skipWhitespace(buffer)
+			if skip > 0 {
+				buffer = buffer[skip:]
+			}
+
+			// Find complete JSON object
+			jsonStart, jsonEnd := findCompleteJSON(buffer)
+
+			// If we found a complete JSON object, parse and display it
+			if jsonEnd > 0 && jsonStart >= 0 {
+				jsonData := buffer[jsonStart:jsonEnd]
+
+				// Wrap processing in panic recovery to prevent crashes
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							// Silently skip objects that cause panics
+							if cfg.Verbose {
+								fmt.Fprintf(os.Stderr, "warning: skipped JSON object at offset %d due to error: %v\n", jsonStart, r)
+							}
+						}
+					}()
+
+					// Parse JSON object
+					var msg parser.StreamMessage
+					if err := json.Unmarshal(jsonData, &msg); err != nil {
+						// Skip invalid JSON
+						if cfg.Verbose {
+							fmt.Fprintf(os.Stderr, "warning: skipped invalid JSON at offset %d: %v\n", jsonStart, err)
+						}
+					} else {
+						lineNum++
+						// Display the message (may panic on unexpected formats)
+						display.DisplayMessage(&msg, lineNum, cfg)
+
+						// Show usage if requested (may panic)
+						if showUsage && msg.Usage != nil {
+							display.DisplayUsage(msg.Usage)
+						}
+					}
+				}()
+
+				// Remove processed JSON from buffer
+				buffer = buffer[jsonEnd:]
+				processed = true
+				continue // Try to find another complete object
+			}
+
+			// No complete object found, break and read more data
+			break
+		}
+
+		// If we've hit EOF and processed everything we can, exit
+		if readErr == io.EOF {
+			// Check if there's remaining data in buffer (incomplete JSON)
+			remaining := strings.TrimSpace(string(buffer))
+			if remaining != "" {
+				if cfg.Verbose {
+					fmt.Fprintf(os.Stderr, "warning: incomplete JSON at end of input (%d bytes)\n", len(buffer))
+				}
+			}
+			break
+		}
+
+		// If we didn't process anything and didn't read anything, we're stuck
+		if !processed && n == 0 && readErr == nil {
+			// This shouldn't happen with a well-behaved reader, but protect against infinite loops
+			break
+		}
+
+		// Prevent buffer from growing unbounded
+		if len(buffer) > maxBufferSize {
+			return fmt.Errorf("error: buffer too large (max %dMB), possible malformed input", maxBufferSize/(1024*1024))
+		}
 	}
 
 	return nil
