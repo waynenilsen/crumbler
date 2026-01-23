@@ -133,14 +133,14 @@ func TestListDirRecursive(t *testing.T) {
 
 	builder := NewTestProject(t)
 	root := builder.
-		WithCrumb("01-phase", "Phase content").
-		WithCrumb("01-phase/01-task", "Task content").
+		WithCrumb("01-setup", "Setup content").
+		WithCrumb("01-setup/01-database", "Database content").
 		Build()
 
-	phasePath := filepath.Join(root, crumb.CrumblerDir, "01-phase")
-	entries := ListDirRecursive(t, phasePath)
+	setupPath := filepath.Join(root, crumb.CrumblerDir, "01-setup")
+	entries := ListDirRecursive(t, setupPath)
 
-	// Should include: README.md, 01-task/, 01-task/README.md
+	// Should include: README.md, 01-database/, 01-database/README.md
 	if len(entries) < 2 {
 		t.Errorf("expected at least 2 entries, got %d: %v", len(entries), entries)
 	}

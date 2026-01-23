@@ -97,7 +97,7 @@ func (b *TestProjectBuilder) cleanup() {
 }
 
 // WithCrumb adds a crumb at the specified relative path with optional README content.
-// Path should be relative to .crumbler/ (e.g., "01-task" or "01-phase/01-task")
+	// Path should be relative to .crumbler/ (e.g., "01-task" or "01-setup/01-database")
 func (b *TestProjectBuilder) WithCrumb(relPath, readme string) *TestProjectBuilder {
 	b.crumbs[relPath] = &crumbConfig{readme: readme}
 	return b

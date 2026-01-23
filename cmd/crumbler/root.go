@@ -109,11 +109,11 @@ EXAMPLES:
 STRUCTURE:
     .crumbler/                           # Project root (auto-created)
     ├── README.md                        # Root crumb
-    ├── 01-phase-one/                    # First child crumb
+    ├── 01-setup/                        # First child crumb
     │   ├── README.md                    # Task instructions
-    │   └── 01-subtask/                  # Nested crumb
+    │   └── 01-database/                 # Nested crumb
     │       └── README.md
-    └── 02-phase-two/
+    └── 02-features/
         └── README.md
 
 For more information: crumbler help <command>

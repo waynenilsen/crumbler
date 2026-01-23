@@ -113,23 +113,19 @@ No position tracking needed—the algorithm always finds the same crumb given th
 
 ## Commands
 
-Minimal command set (5 commands):
+Minimal command set (4 commands):
 
 | Command | Description |
 |---------|-------------|
-| `crumbler init` | Create `.crumbler/` with root README.md |
 | `crumbler prompt` | Output structured prompt for agent |
-| `crumbler create {name}` | Create sub-crumb under current crumb |
+| `crumbler create {name}` | Create sub-crumb under current crumb (auto-initializes if needed) |
 | `crumbler delete` | Delete current crumb (must be leaf) |
 | `crumbler status` | Show tree structure and progress |
 
 ### Command Details
 
-**`crumbler init`**
-- Creates `.crumbler/README.md`
-- Ready for agent to start decomposing
-
 **`crumbler create "Some Name Here"`**
+- Auto-initializes `.crumbler/` if it doesn't exist
 - Auto-assigns next available ID (01-10)
 - Auto-kebabifies: "Some Name Here" → `some-name-here`
 - Creates directory with empty README.md under current crumb
@@ -168,10 +164,7 @@ go install github.com/waynenilsen/crumbler@latest
 ## Usage Example
 
 ```bash
-# Initialize
-crumbler init
-
-# Create initial crumbs
+# Create initial crumbs (auto-initializes .crumbler/)
 crumbler create "Setup"
 crumbler create "Features"
 

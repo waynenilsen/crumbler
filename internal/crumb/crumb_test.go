@@ -219,9 +219,9 @@ func TestGetCurrent(t *testing.T) {
 
 	t.Run("nested crumbs returns deepest", func(t *testing.T) {
 		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase"))
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase", "01-sprint"))
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase", "01-sprint", "01-ticket"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup", "01-database"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup", "01-database", "01-migrations"))
 
 		current, err := GetCurrent(root)
 		if err != nil {
@@ -230,8 +230,8 @@ func TestGetCurrent(t *testing.T) {
 		if current == nil {
 			t.Fatal("expected crumb, got nil")
 		}
-		if current.Name != "ticket" {
-			t.Errorf("Name = %q, want %q", current.Name, "ticket")
+		if current.Name != "migrations" {
+			t.Errorf("Name = %q, want %q", current.Name, "migrations")
 		}
 	})
 
@@ -440,9 +440,9 @@ func TestList(t *testing.T) {
 
 	t.Run("nested structure", func(t *testing.T) {
 		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase1"))
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase1", "01-task"))
-		createCrumb(t, filepath.Join(root, CrumblerDir, "02-phase2"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup", "01-database"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "02-features"))
 
 		tree, err := List(root)
 		if err != nil {
@@ -453,12 +453,12 @@ func TestList(t *testing.T) {
 			t.Errorf("expected 2 children, got %d", len(tree.Children))
 		}
 
-		// First child should be phase1 with 1 child
-		if tree.Children[0].Name != "phase1" {
-			t.Errorf("first child = %q, want %q", tree.Children[0].Name, "phase1")
+		// First child should be setup with 1 child
+		if tree.Children[0].Name != "setup" {
+			t.Errorf("first child = %q, want %q", tree.Children[0].Name, "setup")
 		}
 		if len(tree.Children[0].Children) != 1 {
-			t.Errorf("phase1 children = %d, want 1", len(tree.Children[0].Children))
+			t.Errorf("setup children = %d, want 1", len(tree.Children[0].Children))
 		}
 	})
 }
@@ -520,9 +520,9 @@ func TestCount(t *testing.T) {
 
 	t.Run("nested structure", func(t *testing.T) {
 		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase1"))
-		createCrumb(t, filepath.Join(root, CrumblerDir, "01-phase1", "01-task"))
-		createCrumb(t, filepath.Join(root, CrumblerDir, "02-phase2"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup", "01-database"))
+		createCrumb(t, filepath.Join(root, CrumblerDir, "02-features"))
 
 		count, err := Count(root)
 		if err != nil {

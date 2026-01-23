@@ -250,35 +250,35 @@ func TestFormatTree(t *testing.T) {
 			Children: []crumb.Crumb{
 				{
 					ID:      "01",
-					Name:    "phase1",
-					RelPath: ".crumbler/01-phase1",
+					Name:    "setup",
+					RelPath: ".crumbler/01-setup",
 					Children: []crumb.Crumb{
 						{
 							ID:      "01",
-							Name:    "task",
-							RelPath: ".crumbler/01-phase1/01-task",
+							Name:    "database",
+							RelPath: ".crumbler/01-setup/01-database",
 							IsLeaf:  true,
 						},
 					},
 				},
 				{
 					ID:      "02",
-					Name:    "phase2",
-					RelPath: ".crumbler/02-phase2",
+					Name:    "features",
+					RelPath: ".crumbler/02-features",
 					IsLeaf:  true,
 				},
 			},
 		}
 
 		tree := FormatTree(root, "", false)
-		if !strings.Contains(tree, "01-phase1/") {
-			t.Error("expected phase1 in tree")
+		if !strings.Contains(tree, "01-setup/") {
+			t.Error("expected setup in tree")
 		}
-		if !strings.Contains(tree, "01-task/") {
-			t.Error("expected task in tree")
+		if !strings.Contains(tree, "01-database/") {
+			t.Error("expected database in tree")
 		}
-		if !strings.Contains(tree, "02-phase2/") {
-			t.Error("expected phase2 in tree")
+		if !strings.Contains(tree, "02-features/") {
+			t.Error("expected features in tree")
 		}
 	})
 }

@@ -77,29 +77,29 @@ func TestNestedCrumbs(t *testing.T) {
 
 	builder := NewTestProject(t)
 	root := builder.
-		WithCrumb("01-phase", "Phase description").
-		WithCrumb("01-phase/01-task", "Task description").
+		WithCrumb("01-setup", "Setup description").
+		WithCrumb("01-setup/01-database", "Database description").
 		Build()
 
 	// Verify nested structure
-	phasePath := filepath.Join(root, crumb.CrumblerDir, "01-phase")
-	taskPath := filepath.Join(phasePath, "01-task")
+	setupPath := filepath.Join(root, crumb.CrumblerDir, "01-setup")
+	databasePath := filepath.Join(setupPath, "01-database")
 
-	if _, err := os.Stat(phasePath); err != nil {
-		t.Fatalf("expected phase directory to exist: %v", err)
+	if _, err := os.Stat(setupPath); err != nil {
+		t.Fatalf("expected setup directory to exist: %v", err)
 	}
-	if _, err := os.Stat(taskPath); err != nil {
-		t.Fatalf("expected task directory to exist: %v", err)
+	if _, err := os.Stat(databasePath); err != nil {
+		t.Fatalf("expected database directory to exist: %v", err)
 	}
 
-	// Verify task README
-	readmePath := filepath.Join(taskPath, crumb.ReadmeFile)
+	// Verify database README
+	readmePath := filepath.Join(databasePath, crumb.ReadmeFile)
 	content, err := os.ReadFile(readmePath)
 	if err != nil {
 		t.Fatalf("failed to read README: %v", err)
 	}
-	if string(content) != "Task description" {
-		t.Errorf("expected README content %q, got %q", "Task description", string(content))
+	if string(content) != "Database description" {
+		t.Errorf("expected README content %q, got %q", "Database description", string(content))
 	}
 }
 
