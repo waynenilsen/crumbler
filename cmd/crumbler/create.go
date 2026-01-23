@@ -34,8 +34,10 @@ func runCreate(args []string) error {
 
 	for _, path := range paths {
 		rel := relPath(projectRoot, path)
-		fmt.Printf("Created crumb: %s\n", rel)
+		fmt.Printf("Created crumb: %s/README.md\n", rel)
 	}
+
+	fmt.Println("\nNOTE: Agents must call read tool before write tool on README.md files, even though they're empty.")
 
 	return nil
 }
