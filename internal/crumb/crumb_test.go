@@ -508,7 +508,7 @@ func TestCount(t *testing.T) {
 	t.Parallel()
 
 	t.Run("empty project", func(t *testing.T) {
-		root := setupTestProject(t)
+		root := t.TempDir() // No .crumbler directory
 		count, err := Count(root)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -518,8 +518,19 @@ func TestCount(t *testing.T) {
 		}
 	})
 
+	t.Run("root only", func(t *testing.T) {
+		root := setupTestProject(t) // Creates .crumbler with README.md
+		count, err := Count(root)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if count != 1 {
+			t.Errorf("count = %d, want 1", count)
+		}
+	})
+
 	t.Run("nested structure", func(t *testing.T) {
-		root := setupTestProject(t)
+		root := setupTestProject(t) // Creates .crumbler with README.md (counts as 1)
 		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup"))
 		createCrumb(t, filepath.Join(root, CrumblerDir, "01-setup", "01-database"))
 		createCrumb(t, filepath.Join(root, CrumblerDir, "02-features"))
@@ -528,8 +539,8 @@ func TestCount(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if count != 3 {
-			t.Errorf("count = %d, want 3", count)
+		if count != 4 { // 1 root + 3 children
+			t.Errorf("count = %d, want 4", count)
 		}
 	})
 }

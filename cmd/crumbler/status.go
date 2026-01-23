@@ -41,23 +41,21 @@ func runStatus(args []string) error {
 
 	fmt.Printf("Project Status: %d crumb(s) remaining\n\n", count)
 
-	// Print tree
-	fmt.Println(prompt.FormatTree(tree, "", false))
-
 	// Get current crumb
 	current, err := crumb.GetCurrent(projectRoot)
 	if err != nil {
 		return err
 	}
 
+	// Print tree with current crumb marked
+	currentPath := ""
+	if current != nil {
+		currentPath = current.Path
+	}
+	fmt.Println(prompt.FormatTreeWithCurrent(tree, "", false, currentPath))
+
 	if current != nil {
 		fmt.Printf("Current: %s\n", current.RelPath)
-		readme, _ := current.GetReadme()
-		if readme == "" {
-			fmt.Println("State: DECOMPOSE (README is empty)")
-		} else {
-			fmt.Println("State: EXECUTE (README has content)")
-		}
 	}
 
 	return nil
@@ -75,7 +73,6 @@ DESCRIPTION:
     - Total number of remaining crumbs
     - Tree view of all crumbs
     - Current crumb (marked with arrow)
-    - Current state (DECOMPOSE or EXECUTE)
 
 OUTPUT:
     Tree view shows the crumb hierarchy with the current crumb marked.
@@ -93,11 +90,5 @@ OUTPUT EXAMPLE:
     └── 02-features/
 
     Current: .crumbler/01-setup/01-database
-    State: EXECUTE (README has content)
-
-STATES:
-    DONE       No crumbs remain - project complete
-    DECOMPOSE  Current crumb's README is empty - needs planning
-    EXECUTE    Current crumb's README has content - do the work
 `)
 }

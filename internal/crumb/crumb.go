@@ -70,14 +70,8 @@ func Create(root string, name string) (string, error) {
 	crumblerPath := filepath.Join(root, CrumblerDir)
 
 	// Auto-init: create .crumbler with README if it doesn't exist
-	if _, err := os.Stat(crumblerPath); os.IsNotExist(err) {
-		if err := os.MkdirAll(crumblerPath, 0755); err != nil {
-			return "", fmt.Errorf("failed to create .crumbler directory: %w", err)
-		}
-		readmePath := filepath.Join(crumblerPath, ReadmeFile)
-		if err := os.WriteFile(readmePath, []byte{}, 0644); err != nil {
-			return "", fmt.Errorf("failed to create root README.md: %w", err)
-		}
+	if err := ensureCrumblerDir(crumblerPath); err != nil {
+		return "", err
 	}
 
 	current, err := GetCurrent(root)
@@ -93,6 +87,53 @@ func Create(root string, name string) (string, error) {
 		parentPath = current.Path
 	}
 
+	return CreateAt(parentPath, name)
+}
+
+// CreateMultiple creates multiple sub-crumbs under the current crumb.
+// All crumbs are created as siblings (children of the same parent).
+// Returns the paths to all created crumb directories.
+func CreateMultiple(root string, names []string) ([]string, error) {
+	if len(names) == 0 {
+		return nil, fmt.Errorf("no names provided")
+	}
+
+	crumblerPath := filepath.Join(root, CrumblerDir)
+
+	// Auto-init: create .crumbler with README if it doesn't exist
+	if err := ensureCrumblerDir(crumblerPath); err != nil {
+		return nil, err
+	}
+
+	// Get current crumb ONCE - all creates will be children of this
+	current, err := GetCurrent(root)
+	if err != nil {
+		return nil, err
+	}
+
+	var parentPath string
+	if current == nil {
+		parentPath = crumblerPath
+	} else {
+		parentPath = current.Path
+	}
+
+	// Create all crumbs as siblings under the same parent
+	var paths []string
+	for _, name := range names {
+		path, err := CreateAt(parentPath, name)
+		if err != nil {
+			return paths, fmt.Errorf("failed to create crumb %q: %w", name, err)
+		}
+		paths = append(paths, path)
+	}
+
+	return paths, nil
+}
+
+// CreateAt creates a new crumb at a specific parent path.
+// Returns the path to the created crumb directory.
+func CreateAt(parentPath string, name string) (string, error) {
 	// Get next available ID
 	id, err := NextID(parentPath)
 	if err != nil {
@@ -116,6 +157,20 @@ func Create(root string, name string) (string, error) {
 	}
 
 	return crumbPath, nil
+}
+
+// ensureCrumblerDir creates the .crumbler directory with README if it doesn't exist.
+func ensureCrumblerDir(crumblerPath string) error {
+	if _, err := os.Stat(crumblerPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(crumblerPath, 0755); err != nil {
+			return fmt.Errorf("failed to create .crumbler directory: %w", err)
+		}
+		readmePath := filepath.Join(crumblerPath, ReadmeFile)
+		if err := os.WriteFile(readmePath, []byte{}, 0644); err != nil {
+			return fmt.Errorf("failed to create root README.md: %w", err)
+		}
+	}
+	return nil
 }
 
 // Delete removes the current crumb.
@@ -214,17 +269,23 @@ func IsDone(root string) (bool, error) {
 	return false, nil // Project has work to do
 }
 
-// Count returns the total number of crumbs (excluding root).
-// Returns 0 if .crumbler doesn't exist.
+// Count returns the total number of crumbs.
+// Returns 0 if .crumbler doesn't exist (project is done).
 func Count(root string) (int, error) {
 	crumblerPath := filepath.Join(root, CrumblerDir)
 
-	// Check if .crumbler exists
+	// If .crumbler doesn't exist, project is done
 	if _, err := os.Stat(crumblerPath); os.IsNotExist(err) {
-		return 0, nil // No crumbs
+		return 0, nil
 	}
 
-	return countCrumbs(crumblerPath)
+	// Count child crumbs + 1 for root
+	childCount, err := countCrumbs(crumblerPath)
+	if err != nil {
+		return 0, err
+	}
+
+	return childCount + 1, nil
 }
 
 // GetReadme returns the contents of the crumb's README.md.

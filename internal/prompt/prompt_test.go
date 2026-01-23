@@ -36,75 +36,6 @@ func createCrumb(t *testing.T, path, readmeContent string) {
 	}
 }
 
-func TestGetState(t *testing.T) {
-	t.Parallel()
-
-	t.Run("done when no .crumbler", func(t *testing.T) {
-		// No .crumbler directory -> DONE
-		root := t.TempDir()
-
-		state, err := GetState(root)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if state != StateDone {
-			t.Errorf("state = %q, want %q", state, StateDone)
-		}
-	})
-
-	t.Run("decompose when root crumb empty", func(t *testing.T) {
-		// .crumbler exists with empty README -> DECOMPOSE (root crumb is current)
-		root := setupTestProject(t)
-
-		state, err := GetState(root)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if state != StateDecompose {
-			t.Errorf("state = %q, want %q", state, StateDecompose)
-		}
-	})
-
-	t.Run("decompose when README empty", func(t *testing.T) {
-		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, crumb.CrumblerDir, "01-task"), "")
-
-		state, err := GetState(root)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if state != StateDecompose {
-			t.Errorf("state = %q, want %q", state, StateDecompose)
-		}
-	})
-
-	t.Run("execute when README has content", func(t *testing.T) {
-		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, crumb.CrumblerDir, "01-task"), "Do this task")
-
-		state, err := GetState(root)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if state != StateExecute {
-			t.Errorf("state = %q, want %q", state, StateExecute)
-		}
-	})
-
-	t.Run("whitespace-only README is decompose", func(t *testing.T) {
-		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, crumb.CrumblerDir, "01-task"), "   \n\t  \n")
-
-		state, err := GetState(root)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if state != StateDecompose {
-			t.Errorf("state = %q, want %q", state, StateDecompose)
-		}
-	})
-}
-
 func TestGeneratePrompt(t *testing.T) {
 	t.Parallel()
 
@@ -116,12 +47,12 @@ func TestGeneratePrompt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if !strings.Contains(prompt, "STATE: DONE") {
-			t.Error("expected STATE: DONE in prompt")
+		if !strings.Contains(prompt, "DONE") {
+			t.Error("expected DONE in prompt")
 		}
 	})
 
-	t.Run("decompose prompt", func(t *testing.T) {
+	t.Run("empty README shows warning", func(t *testing.T) {
 		root := setupTestProject(t)
 		createCrumb(t, filepath.Join(root, crumb.CrumblerDir, "01-task"), "")
 
@@ -129,15 +60,15 @@ func TestGeneratePrompt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if !strings.Contains(prompt, "STATE: DECOMPOSE") {
-			t.Error("expected STATE: DECOMPOSE in prompt")
+		if !strings.Contains(prompt, "README is empty") {
+			t.Error("expected empty README warning in prompt")
 		}
 		if !strings.Contains(prompt, "crumbler create") {
 			t.Error("expected create command in prompt")
 		}
 	})
 
-	t.Run("execute prompt", func(t *testing.T) {
+	t.Run("README with content shows content", func(t *testing.T) {
 		root := setupTestProject(t)
 		createCrumb(t, filepath.Join(root, crumb.CrumblerDir, "01-task"), "Do the thing")
 
@@ -145,27 +76,11 @@ func TestGeneratePrompt(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if !strings.Contains(prompt, "STATE: EXECUTE") {
-			t.Error("expected STATE: EXECUTE in prompt")
-		}
 		if !strings.Contains(prompt, "crumbler delete") {
 			t.Error("expected delete command in prompt")
 		}
 		if !strings.Contains(prompt, "Do the thing") {
 			t.Error("expected README content in prompt")
-		}
-	})
-
-	t.Run("state only mode", func(t *testing.T) {
-		root := setupTestProject(t)
-		createCrumb(t, filepath.Join(root, crumb.CrumblerDir, "01-task"), "Do it")
-
-		prompt, err := GeneratePrompt(root, &Config{StateOnly: true})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if prompt != "EXECUTE" {
-			t.Errorf("prompt = %q, want %q", prompt, "EXECUTE")
 		}
 	})
 
@@ -224,6 +139,26 @@ func TestGeneratePrompt(t *testing.T) {
 			t.Error("should not contain context section")
 		}
 	})
+
+	t.Run("parent context shown for empty README", func(t *testing.T) {
+		root := setupTestProject(t)
+		// Create parent with content
+		parentPath := filepath.Join(root, crumb.CrumblerDir, "01-parent")
+		createCrumb(t, parentPath, "Parent task instructions")
+		// Create child with empty README
+		createCrumb(t, filepath.Join(parentPath, "01-child"), "")
+
+		prompt, err := GeneratePrompt(root, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(prompt, "Parent Context") {
+			t.Error("expected parent context in prompt")
+		}
+		if !strings.Contains(prompt, "Parent task instructions") {
+			t.Error("expected parent README content in prompt")
+		}
+	})
 }
 
 func TestFormatTree(t *testing.T) {
@@ -235,7 +170,7 @@ func TestFormatTree(t *testing.T) {
 			IsLeaf:  true,
 		}
 
-		tree := FormatTree(root, "", false)
+		tree := FormatTreeWithCurrent(root, "", false, ".crumbler")
 		if !strings.Contains(tree, ".crumbler/") {
 			t.Error("expected .crumbler/ in tree")
 		}
@@ -289,22 +224,25 @@ func TestWorkflow(t *testing.T) {
 	t.Run("full workflow", func(t *testing.T) {
 		root := setupTestProject(t)
 
-		// Initially, .crumbler exists with empty README -> root is current -> DECOMPOSE
-		state, _ := GetState(root)
-		if state != StateDecompose {
-			t.Errorf("initial state = %q, want DECOMPOSE", state)
+		// Initially, .crumbler exists with empty README
+		prompt, err := GeneratePrompt(root, nil)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(prompt, "README is empty") {
+			t.Error("expected empty README warning initially")
 		}
 
 		// Create a child crumb
-		_, err := crumb.Create(root, "Task 1")
+		_, err = crumb.Create(root, "Task 1")
 		if err != nil {
 			t.Fatalf("failed to create crumb: %v", err)
 		}
 
-		// Now child is current and empty -> DECOMPOSE
-		state, _ = GetState(root)
-		if state != StateDecompose {
-			t.Errorf("after create state = %q, want DECOMPOSE", state)
+		// Now child is current and empty
+		prompt, _ = GeneratePrompt(root, nil)
+		if !strings.Contains(prompt, "README is empty") {
+			t.Error("expected empty README warning after create")
 		}
 
 		// Get current crumb and add content to its README
@@ -312,28 +250,31 @@ func TestWorkflow(t *testing.T) {
 		readmePath := filepath.Join(current.Path, crumb.ReadmeFile)
 		os.WriteFile(readmePath, []byte("Do this task"), 0644)
 
-		// Now it should be EXECUTE
-		state, _ = GetState(root)
-		if state != StateExecute {
-			t.Errorf("after content state = %q, want EXECUTE", state)
+		// Now README has content
+		prompt, _ = GeneratePrompt(root, nil)
+		if strings.Contains(prompt, "README is empty") {
+			t.Error("should not show empty warning after content added")
+		}
+		if !strings.Contains(prompt, "Do this task") {
+			t.Error("expected README content in prompt")
 		}
 
 		// Delete the child crumb
 		crumb.Delete(root)
 
-		// Root crumb is now current again (with its original empty README) -> DECOMPOSE
-		state, _ = GetState(root)
-		if state != StateDecompose {
-			t.Errorf("after delete child state = %q, want DECOMPOSE", state)
+		// Root crumb is now current again (with its original empty README)
+		prompt, _ = GeneratePrompt(root, nil)
+		if !strings.Contains(prompt, "README is empty") {
+			t.Error("expected empty README warning after child delete")
 		}
 
 		// Delete the root crumb (removes .crumbler entirely)
 		crumb.Delete(root)
 
 		// No .crumbler -> DONE
-		state, _ = GetState(root)
-		if state != StateDone {
-			t.Errorf("after delete root state = %q, want DONE", state)
+		prompt, _ = GeneratePrompt(root, nil)
+		if !strings.Contains(prompt, "DONE") {
+			t.Error("expected DONE in prompt after all crumbs deleted")
 		}
 	})
 }

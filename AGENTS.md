@@ -12,10 +12,10 @@ v2 is a radical simplification. The filesystem IS the state - no status files, n
 
 **Key packages:**
 - `internal/crumb/` - Core crumb operations (traverse, create, delete, list)
-- `internal/prompt/` - Prompt generation with 3 states (DECOMPOSE, EXECUTE, DONE)
+- `internal/prompt/` - Prompt generation (agent decides execute vs decompose)
 - `internal/models/` - Just constants (CrumblerDir, ReadmeFile, MaxChildren)
 - `internal/testutil/` - Test infrastructure (builder, helpers, generator)
-- `cmd/crumbler/` - CLI commands (init, prompt, create, delete, status, clean)
+- `cmd/crumbler/` - CLI commands (prompt, create, delete, status, clean)
 
 ### Core Data Model
 
@@ -48,18 +48,19 @@ Depth-first traversal to find current crumb:
 
 ### Prompt Generation (internal/prompt/)
 
-Three states:
-- `DECOMPOSE` - README is empty, agent needs to plan
-- `EXECUTE` - README has content, agent does work then deletes
-- `DONE` - No crumbs remain
+**Stateless design** - The agent decides what to do based on README content:
+- If README is empty: shows warning + parent context for inheritance
+- If README has content: shows the content
+- If no `.crumbler/`: shows DONE message
+
+The preamble/postamble are static instructions explaining the execute vs decompose decision.
 
 ### CLI Commands
 
 | Command | File | Description |
 |---------|------|-------------|
-| `init` | init.go | Creates .crumbler/README.md |
 | `prompt` | prompt.go | Outputs structured prompt |
-| `create` | create.go | Creates sub-crumb under current |
+| `create` | create.go | Creates sub-crumbs under current (supports multiple names) |
 | `delete` | delete.go | Deletes current crumb (must be leaf) |
 | `status` | status.go | Shows tree with crumb count |
 | `clean` | clean.go | JSON cleaning utility (unchanged) |
@@ -88,7 +89,9 @@ AssertDirExists(t, path)
 4. **10-item limit**: Forces meaningful decomposition
 5. **2-digit IDs**: Simpler than v1's 4-digit
 6. **Auto-kebabification**: `create` transforms names automatically
-7. **Root is special**: .crumbler/ is always a branch, never returned as "current"
+7. **Auto-init**: `create` auto-initializes .crumbler/ if it doesn't exist
+8. **Batch create**: `create` accepts multiple names to create sibling crumbs
+9. **No state machine**: Agent decides execute vs decompose based on README content
 
 ### Key Files
 
@@ -100,9 +103,9 @@ internal/
 │   ├── naming.go      # Kebabify, NextID, FormatDir, ParseDir
 │   └── crumb_test.go  # Tests
 ├── prompt/
-│   ├── prompt.go      # GeneratePrompt, GetState
-│   ├── templates.go   # Preamble/postamble templates
-│   ├── format.go      # FormatTree, formatContext, formatInstructions
+│   ├── prompt.go      # GeneratePrompt (stateless)
+│   ├── templates.go   # Static preamble/postamble templates
+│   ├── format.go      # FormatTree, formatContext, getParentReadmeContext
 │   └── prompt_test.go # Tests
 ├── models/
 │   └── models.go      # Constants only (CrumblerDir, ReadmeFile, MaxChildren)
@@ -122,4 +125,15 @@ go test ./...
 
 ```bash
 go build -o crumbler
+```
+
+### Manual Testing
+
+Use `.test/` directory for manual testing (gitignored):
+
+```bash
+mkdir -p .test && cd .test
+../crumbler create "Test Task"
+../crumbler prompt
+../crumbler status
 ```

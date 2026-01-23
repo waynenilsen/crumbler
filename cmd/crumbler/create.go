@@ -2,13 +2,13 @@ package crumbler
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/waynenilsen/crumbler/internal/crumb"
 )
 
 // runCreate handles the 'crumbler create' command.
-// It creates a new sub-crumb under the current crumb.
+// It creates new sub-crumbs under the current crumb.
+// Multiple names can be provided to create sibling crumbs.
 func runCreate(args []string) error {
 	// Handle help flag
 	if len(args) > 0 && (args[0] == "--help" || args[0] == "-h" || args[0] == "help") {
@@ -16,48 +16,49 @@ func runCreate(args []string) error {
 		return nil
 	}
 
-	// Require a name argument
+	// Require at least one name argument
 	if len(args) == 0 {
-		return fmt.Errorf("error: missing crumb name\n\nUsage: crumbler create \"Name\"\n\nRun 'crumbler create --help' for more information")
+		return fmt.Errorf("error: missing crumb name\n\nUsage: crumbler create \"Name\" [\"Name2\" ...]\n\nRun 'crumbler create --help' for more information")
 	}
-
-	// Join all args as the name (in case it wasn't quoted)
-	name := strings.Join(args, " ")
 
 	projectRoot, err := getProjectRoot()
 	if err != nil {
 		return err
 	}
 
-	// Create the crumb
-	path, err := crumb.Create(projectRoot, name)
+	// Create all crumbs as siblings
+	paths, err := crumb.CreateMultiple(projectRoot, args)
 	if err != nil {
-		return fmt.Errorf("failed to create crumb: %w", err)
+		return fmt.Errorf("failed to create crumb(s): %w", err)
 	}
 
-	relPath := relPath(projectRoot, path)
-	fmt.Printf("Created crumb: %s\n", relPath)
-	fmt.Printf("README: %s/README.md\n", relPath)
+	for _, path := range paths {
+		rel := relPath(projectRoot, path)
+		fmt.Printf("Created crumb: %s\n", rel)
+	}
 
 	return nil
 }
 
 // printCreateHelp prints help for the create command.
 func printCreateHelp() {
-	fmt.Print(`crumbler create - Create a new sub-crumb
+	fmt.Print(`crumbler create - Create new sub-crumbs
 
 USAGE:
-    crumbler create "Name"
+    crumbler create "Name" ["Name2" ...]
 
 DESCRIPTION:
-    Creates a new sub-crumb under the current crumb. The name is automatically
-    converted to kebab-case and assigned the next available ID (01-10).
+    Creates new sub-crumbs under the current crumb. Names are automatically
+    converted to kebab-case and assigned sequential IDs (01-10).
 
-    Crumbs are created with an empty README.md file that you should populate
+    Multiple names can be provided to create sibling crumbs in one command.
+    This is useful during DECOMPOSE when planning multiple tasks at once.
+
+    Crumbs are created with empty README.md files that you should populate
     with task instructions.
 
 ARGUMENTS:
-    Name    Human-readable name for the crumb (required)
+    Name    Human-readable name(s) for the crumb(s) (at least one required)
             Will be converted to kebab-case (e.g., "Add Auth" -> "add-auth")
 
 CREATES:
@@ -67,17 +68,17 @@ CREATES:
 CONSTRAINTS:
     - Maximum 10 children per crumb (IDs 01-10)
     - Names are converted to kebab-case
-    - Created under the current crumb (deepest leaf)
+    - All crumbs created as siblings under the current crumb
 
 EXAMPLES:
     crumbler create "Setup Database"
     # Creates: 01-setup-database/README.md
 
-    crumbler create "Add User Authentication"
-    # Creates: 02-add-user-authentication/README.md
-
-    crumbler create "Fix Bug"
-    # Creates under current crumb
+    crumbler create "Add Auth" "Setup DB" "Write Tests"
+    # Creates three sibling crumbs:
+    #   01-add-auth/README.md
+    #   02-setup-db/README.md
+    #   03-write-tests/README.md
 
 ERRORS:
     - "directory is full" - Parent crumb already has 10 children

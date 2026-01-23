@@ -7,7 +7,7 @@ import (
 )
 
 // runPrompt handles the 'crumbler prompt' command.
-// It generates the AI agent prompt based on current state.
+// It generates the AI agent prompt based on current crumb.
 func runPrompt(args []string) error {
 	config := &prompt.Config{}
 
@@ -25,8 +25,6 @@ func runPrompt(args []string) error {
 			config.NoContext = true
 		case "--minimal":
 			config.Minimal = true
-		case "--state-only":
-			config.StateOnly = true
 		default:
 			return fmt.Errorf("unknown flag: %s\n\nRun 'crumbler prompt --help' for usage", arg)
 		}
@@ -55,28 +53,19 @@ USAGE:
     crumbler prompt [flags]
 
 DESCRIPTION:
-    Generates a structured prompt for AI agents based on the current project
-    state. The prompt includes context about the current crumb and instructions
-    for what to do next.
+    Generates a structured prompt for AI agents based on the current crumb.
+    The prompt includes context about the current crumb and instructions
+    for what to do next. The agent decides whether to execute or decompose.
 
 FLAGS:
     --no-preamble    Skip the preamble section (crumbler explanation)
     --no-postamble   Skip the postamble section (next steps)
     --no-context     Skip the context section (README contents)
     --minimal        Use minimal preamble/postamble
-    --state-only     Output only the state name (DECOMPOSE, EXECUTE, or DONE)
-
-STATES:
-    DONE        No crumbs remain - project is complete
-    DECOMPOSE   Current crumb's README is empty - plan the work
-    EXECUTE     Current crumb's README has content - do the work
 
 EXAMPLES:
     # Get full prompt
     crumbler prompt
-
-    # Get just the state
-    crumbler prompt --state-only
 
     # Get minimal prompt
     crumbler prompt --minimal
@@ -87,15 +76,15 @@ EXAMPLES:
 AGENT LOOP:
     The typical agent loop is:
     1. crumbler prompt          # Get instructions
-    2. [Do the work]            # Follow instructions
-    3. crumbler delete          # If work is done
-    4. crumbler prompt          # Get next instructions
+    2. [Decide: execute or decompose]
+    3. [Do the work or create sub-crumbs]
+    4. crumbler delete          # If work is done
+    5. exit                     # Context resets, loop continues
 
 OUTPUT FORMAT:
     The prompt includes:
-    - Preamble: Explanation of crumbler system
+    - Preamble: Explanation of crumbler system and decision options
     - Context: Current crumb path and README contents
-    - Instructions: State-specific guidance
-    - Postamble: Next steps to run
+    - Postamble: Reminder to exit when done
 `)
 }
